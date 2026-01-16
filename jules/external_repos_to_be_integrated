@@ -1,0 +1,154 @@
+Here's the adapted version of the `open-lovable` project based on your instructions. I'll provide a modified `README.md` and a new implementation structure:
+
+## Modified README.md
+
+```markdown
+# Open-Lovable Enhanced
+
+A modernized version of open-lovable with additional features for website cloning and transformation.
+
+## Features
+
+1. **Website Cloning Engine**:
+   - Primary: [goclone](https://github.com/goclone-dev/goclone.git)
+   - Fallback: [webpage2html](https://github.com/zTrix/webpage2html.git)
+
+2. **Site Transformation**:
+   - HTML code analysis and modernization
+   - User-specified changes via UI or file upload
+   - Persistent chat interface for iterative improvements
+
+3. **Enhanced LLM Integration**:
+   - New endpoint: Helmholtz Code Model
+   - Aliases:
+     - `alias-large`: For planning tasks
+     - `alias-huge`: For full codebase context queries
+
+4. **Robust Error Handling**:
+   - 501 error recovery with exponential backoff (30s → 60s after 5 attempts)
+
+## Implementation Structure
+
+```
+open-lovable/
+├── core/                  # Core functionality
+│   ├── clone/             # Website cloning components
+│   │   ├── goclone/       # Primary cloning engine
+│   │   └── webpage2html/  # Fallback cloning engine
+│   ├── transform/         # Site transformation logic
+│   └── chat/              # Chat interface
+├── api/                   # API endpoints
+│   ├── url-endpoint/      # URL processing endpoint
+│   └── llm-endpoint/      # LLM integration
+└── error-handling/        # Robust error recovery
+```
+
+## Setup Instructions
+
+1. Clone the repository:
+```bash
+git clone https://github.com/JsonLord/open-lovable.git
+cd open-lovable
+```
+
+2. Install dependencies:
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Configure the cloning engines:
+```bash
+# For goclone
+git clone https://github.com/goclone-dev/goclone.git core/clone/goclone
+
+# For webpage2html fallback
+git clone https://github.com/zTrix/webpage2html.git core/clone/webpage2html
+```
+
+4. Build and run:
+```bash
+npm run build
+npm start
+```
+
+## API Endpoints
+
+### URL Processing
+- `POST /api/clone` - Accepts URL to clone and transform
+- Request body: `{ "url": "https://example.com" }`
+
+### LLM Integration
+- `POST /api/llm` - Query the Helmholtz model
+- Request body: `{ "query": "your question", "alias": "alias-large|alias-huge" }`
+
+## Error Handling
+
+The system implements intelligent retry logic for 501 errors:
+1. First 5 attempts: 30-second delay between retries
+2. Subsequent attempts: 60-second delay
+
+## Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+```
+
+## Key Components Implementation
+
+### 1. Cloning Engine Integration
+
+```javascript
+// core/clone/cloneEngine.js
+const { exec } = require('child_process');
+const path = require('path');
+
+class CloneEngine {
+  constructor() {
+    this.primaryEngine = 'goclone';
+    this.fallbackEngine = 'webpage2html';
+  }
+
+  async cloneWebsite(url, outputDir) {
+    try {
+      // Try primary engine first
+      await this.executeClone(this.primaryEngine, url, outputDir);
+    } catch (error) {
+      if (error.message.includes('501')) {
+        // Implement retry logic here
+        console.log('Primary engine failed, trying fallback...');
+        await this.executeClone(this.fallbackEngine, url, outputDir);
+      }
+    }
+  }
+
+  async executeClone(engine, url, outputDir) {
+    return new Promise((resolve, reject) => {
+      const enginePath = path.join(__dirname, engine);
+      const command = `${enginePath} --url ${url} --output ${outputDir}`;
+
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(stdout);
+      });
+    });
+  }
+}
+
+module.exports = new CloneEngine();
+```
+
+### 2. LLM Integration
+
+```javascript
+// api/llm-endpoint/helmholtz.js
+const axios = require('axios');
+
+class HelmholtzLLM {
