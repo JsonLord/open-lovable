@@ -1,122 +1,54 @@
-I'll help you adapt the `open-lovable` project to include website cloning functionality with the specified requirements. Here's how we can modify the existing structure:
-
 ```python
-# File: app.py (modified from open-lovable)
-import os
-import time
-import requests
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-import subprocess
-import shutil
-from typing import Optional
+# Hugging Face Data Configuration
+HF_NAMESPACE = "your-namespace-here"
+HF_PROFILE = "your-profile-here" 
+HF_TOKEN = "your-hf-token-here"
 
-app = FastAPI()
+# API List Overview
+API_ENDPOINTS = {
+    "text_generation": "/api/text-generation",
+    "image_classification": "/api/image-classification", 
+    "translation": "/api/translation",
+    "summarization": "/api/summarization"
+}
 
-# Configuration
-CLONE_ATTEMPTS = 5
-INITIAL_DELAY = 30  # seconds
-DELAY_INCREASE = 30  # seconds
-
-class WebsiteCloneRequest(BaseModel):
-    url: str
-    changes: Optional[str] = None
-    change_file: Optional[str] = None
-
-class LLMRequest(BaseModel):
-    prompt: str
-    model: str = "alias-code"  # default model
-
-# New endpoint for Helmholtz API
-@app.post("/helmholtz")
-async def helmholtz_api(request: LLMRequest):
-    models = {
-        "alias-code": "https://api.helmholtz-blablador.fz-juelich.de/v1/code",
-        "alias-large": "https://api.helmholtz-blablador.fz-juelich.de/v1/planning",
-        "alias-huge": "https://api.helmholtz-blablador.fz-juelich.de/v1/context"
+# External Services API Documentation
+EXTERNAL_SERVICES = {
+    "gradio": {
+        "base_url": "https://api.gradio.app",
+        "documentation": "https://gradio.readthedocs.io/en/latest/",
+        "endpoints": {
+            "launch": "/v1/launch",
+            "deploy": "/v1/deploy",
+            "status": "/v1/status"
+        }
+    },
+    "huggingface_hub": {
+        "base_url": "https://huggingface.co/api",
+        "documentation": "https://huggingface.co/docs/huggingface_hub/index",
+        "endpoints": {
+            "models": "/models",
+            "datasets": "/datasets",
+            "spaces": "/spaces"
+        }
     }
+}
 
-    if request.model not in models:
-        raise HTTPException(status_code=400, detail="Invalid model specified")
+# Gradio Integration Configuration
+GRADIO_CONFIG = {
+    "api_key": HF_TOKEN,
+    "namespace": HF_NAMESPACE,
+    "profile": HF_PROFILE,
+    "max_workers": 4,
+    "timeout": 30
+}
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {os.getenv('HELMHOLTZ_API_KEY')}"
-    }
-
-    payload = {
-        "prompt": request.prompt,
-        "max_tokens": 1000,
-        "temperature": 0.7
-    }
-
-    try:
-        response = requests.post(models[request.model], json=payload, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-def clone_website(url: str) -> str:
-    """Clone a website using goclone with fallback to webpage2html"""
-    base_dir = "cloned_sites"
-    os.makedirs(base_dir, exist_ok=True)
-    site_dir = os.path.join(base_dir, url.replace("https://", "").replace("http://", "").replace("/", "_"))
-
-    # First try with goclone
-    try:
-        result = subprocess.run([
-            "goclone",
-            "--url", url,
-            "--output", site_dir,
-            "--no-sandbox"
-        ], check=True, capture_output=True, text=True)
-        return site_dir
-    except subprocess.CalledProcessError as e:
-        print(f"goclone failed: {e}")
-        # Fallback to webpage2html
-        try:
-            result = subprocess.run([
-                "webpage2html",
-                url,
-                "-o", site_dir
-            ], check=True, capture_output=True, text=True)
-            return site_dir
-        except subprocess.CalledProcessError as f:
-            raise Exception(f"Both cloning methods failed: goclone - {e}\nwebpage2html - {f}")
-
-def apply_changes(site_dir: str, changes: Optional[str] = None, change_file: Optional[str] = None):
-    """Apply changes to the cloned website"""
-    if change_file:
-        # Read changes from file
-        with open(change_file, 'r') as f:
-            changes = f.read()
-
-    if changes:
-        # Here you would implement the actual changes to HTML/CSS/JS
-        # This is a placeholder for the actual implementation
-        print(f"Applying changes to {site_dir}")
-        # Example: modify index.html
-        index_path = os.path.join(site_dir, "index.html")
-        if os.path.exists(index_path):
-            with open(index_path, 'r+') as f:
-                content = f.read()
-                # Apply changes here (simplified example)
-                modified_content = content.replace('</head>', f'<script src="/chat.js"></script></head>')
-                f.seek(0)
-                f.write(modified_content)
-                f.truncate()
-
-@app.post("/clone-website")
-async def clone_website_endpoint(request: WebsiteCloneRequest):
-    """Endpoint to clone a website and apply changes"""
-    try:
-        attempts = 0
-        delay = INITIAL_DELAY
-
-        while attempts < CLONE_ATTEMPTS:
-            try:
-                site_dir = clone_website(request.url)
-                apply_changes(site_dir, request.changes, request.change_file)
-                return {"status": "success", "
+# Project Structure
+PROJECT_STRUCTURE = {
+    "data": "data/",
+    "models": "models/",
+    "api": "api/",
+    "services": "services/",
+    "utils": "utils/"
+}
+```

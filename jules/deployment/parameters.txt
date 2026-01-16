@@ -1,0 +1,3 @@
+HF_PROFILE_ID=harvesthealth
+HF_SPACE_NAME=browser-use-webui
+HF_SDK=gradio
