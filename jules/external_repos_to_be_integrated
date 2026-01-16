@@ -1,154 +1,141 @@
-Here's the adapted version of the `open-lovable` project based on your instructions. I'll provide a modified `README.md` and a new implementation structure:
+# Adapted Project: Enhanced Website Cloner with LLM Integration
 
-## Modified README.md
+I'll adapt the `open-lovable` project to incorporate the requested features, including website cloning, LLM integration, and user interaction capabilities.
 
-```markdown
-# Open-Lovable Enhanced
+## Project Structure Overview
 
-A modernized version of open-lovable with additional features for website cloning and transformation.
+### 1. Core Components Integration
 
-## Features
+**Website Cloning System:**
+- Primary: `goclone` (https://github.com/goclone-dev/goclone.git)
+  - Command: `git clone https://github.com/goclone-dev/goclone.git`
+  - Investigation: A Go-based website cloning tool that preserves structure and assets
+  - Impact: Will be the primary cloning engine with fallback capability
 
-1. **Website Cloning Engine**:
-   - Primary: [goclone](https://github.com/goclone-dev/goclone.git)
-   - Fallback: [webpage2html](https://github.com/zTrix/webpage2html.git)
-
-2. **Site Transformation**:
-   - HTML code analysis and modernization
-   - User-specified changes via UI or file upload
-   - Persistent chat interface for iterative improvements
-
-3. **Enhanced LLM Integration**:
-   - New endpoint: Helmholtz Code Model
-   - Aliases:
-     - `alias-large`: For planning tasks
-     - `alias-huge`: For full codebase context queries
-
-4. **Robust Error Handling**:
-   - 501 error recovery with exponential backoff (30s → 60s after 5 attempts)
-
-## Implementation Structure
-
-```
-open-lovable/
-├── core/                  # Core functionality
-│   ├── clone/             # Website cloning components
-│   │   ├── goclone/       # Primary cloning engine
-│   │   └── webpage2html/  # Fallback cloning engine
-│   ├── transform/         # Site transformation logic
-│   └── chat/              # Chat interface
-├── api/                   # API endpoints
-│   ├── url-endpoint/      # URL processing endpoint
-│   └── llm-endpoint/      # LLM integration
-└── error-handling/        # Robust error recovery
-```
-
-## Setup Instructions
-
-1. Clone the repository:
-```bash
-git clone https://github.com/JsonLord/open-lovable.git
-cd open-lovable
-```
-
-2. Install dependencies:
-```bash
-npm install
-# or
-yarn install
-```
-
-3. Configure the cloning engines:
-```bash
-# For goclone
-git clone https://github.com/goclone-dev/goclone.git core/clone/goclone
-
-# For webpage2html fallback
-git clone https://github.com/zTrix/webpage2html.git core/clone/webpage2html
-```
-
-4. Build and run:
-```bash
-npm run build
-npm start
-```
-
-## API Endpoints
-
-### URL Processing
-- `POST /api/clone` - Accepts URL to clone and transform
-- Request body: `{ "url": "https://example.com" }`
-
-### LLM Integration
-- `POST /api/llm` - Query the Helmholtz model
-- Request body: `{ "query": "your question", "alias": "alias-large|alias-huge" }`
-
-## Error Handling
-
-The system implements intelligent retry logic for 501 errors:
-1. First 5 attempts: 30-second delay between retries
-2. Subsequent attempts: 60-second delay
-
-## Contributing
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
-```
-
-## Key Components Implementation
-
-### 1. Cloning Engine Integration
-
-```javascript
-// core/clone/cloneEngine.js
-const { exec } = require('child_process');
-const path = require('path');
-
-class CloneEngine {
-  constructor() {
-    this.primaryEngine = 'goclone';
-    this.fallbackEngine = 'webpage2html';
-  }
-
-  async cloneWebsite(url, outputDir) {
-    try {
-      // Try primary engine first
-      await this.executeClone(this.primaryEngine, url, outputDir);
-    } catch (error) {
-      if (error.message.includes('501')) {
-        // Implement retry logic here
-        console.log('Primary engine failed, trying fallback...');
-        await this.executeClone(this.fallbackEngine, url, outputDir);
-      }
-    }
-  }
-
-  async executeClone(engine, url, outputDir) {
-    return new Promise((resolve, reject) => {
-      const enginePath = path.join(__dirname, engine);
-      const command = `${enginePath} --url ${url} --output ${outputDir}`;
-
-      exec(command, (error, stdout, stderr) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve(stdout);
-      });
-    });
-  }
-}
-
-module.exports = new CloneEngine();
-```
+- Fallback: `webpage2html` (https://github.com/zTrix/webpage2html.git)
+  - Command: `git clone https://github.com/zTrix/webpage2html.git`
+  - Investigation: JavaScript-based single-page cloner with HTML beautification
+  - Impact: Provides alternative when primary cloner fails
 
 ### 2. LLM Integration
 
-```javascript
-// api/llm-endpoint/helmholtz.js
-const axios = require('axios');
+**Helmholtz API Endpoints:**
+- Base URL: `https://api.helmholtz-blablador.fz-juelich.de/v1`
+- Models:
+  - `alias-code`: For coding-specific tasks
+  - `alias-large`: For planning/architecture tasks
+  - `alias-huge`: For full codebase context queries
 
-class HelmholtzLLM {
+**Implementation:**
+```javascript
+async function queryHelmholtz(model, prompt) {
+  try {
+    const response = await fetch(`https://api.helmholtz-blablador.fz-juelich.de/v1/${model}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ prompt: prompt })
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Helmholtz API error:', error);
+    return null;
+  }
+}
+```
+
+### 3. Error Handling (501)
+
+**Implementation:**
+```javascript
+async function withRetry(url, options = {}, maxRetries = 5, initialDelay = 30000) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response;
+    } catch (error) {
+      lastError = error;
+      const delay = attempt < maxRetries ? initialDelay : initialDelay * 2;
+      console.log(`Attempt ${attempt} failed. Retrying in ${delay/1000} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
+}
+```
+
+### 4. User Interaction Flow
+
+**Modified Main Process Flow:**
+1. User provides URL via endpoint or chat interface
+2. System attempts primary cloning (goclone)
+3. If fails, attempts fallback (webpage2html)
+4. Presents cloned site for user review
+5. Allows changes via:
+   - Direct text input
+   - Uploading a changes file
+6. Applies changes using LLM assistance
+7. Maintains chat interface for further modifications
+
+**Endpoint Implementation:**
+```javascript
+// Express route handler
+app.post('/clone', async (req, res) => {
+  const { url } = req.body;
+
+  try {
+    // Attempt cloning with primary method
+    const cloneResult = await attemptClone(url);
+
+    // Process and present to user
+    res.json({
+      status: 'success',
+      cloneResult,
+      webInterfaceUrl: `/interface/${cloneResult.id}`
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+```
+
+### 5. Modern Website Building
+
+**Enhanced Build Process:**
+```javascript
+async function buildModernSite(clonedData, userChanges) {
+  // Use LLM to analyze changes needed
+  const analysis = await queryHelmholtz(
+    'alias-large',
+    `I have cloned a site with structure ${JSON.stringify(clonedData)}
+    and user wants these changes: ${userChanges}.
+    How should I modernize this?`
+  );
+
+  // Apply transformations
+  return {
+    ...clonedData,
+    ...analysis.suggestedChanges,
+    modernFeatures: {
+      responsiveDesign: true,
+      accessibility: true,
+      performance: true
+    }
+  };
+}
+```
+
+### 6. Chat Interface Integration
+
+**Enhanced Chat System:**
+```javascript
+// WebSocket handler for real-time modifications
+io.on('connection', (socket) => {
+  socket.on('siteModification', async (data) => {
+    const { siteId, changes } = data;
+
+    try {
+      const updatedSite = await applyMod

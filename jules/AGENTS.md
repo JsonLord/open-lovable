@@ -2,85 +2,106 @@
 
 ## Working Behavior
 
-Google Jules should approach tasks in this repository by following a systematic, multi-step process:
+Google Jules should approach tasks in this repository by following a systematic process:
 
-1. **URL Processing**: When receiving a URL, use `goclone` to clone the website first. If `goclone` fails, fall back to `webpage2html`.
-
-2. **User Interaction**: After cloning, prompt the user for specific changes or modifications they want to make to the cloned site. Present a textbox for changes or change files.
-
-3. **Code Generation**: Based on user input, generate modern HTML/CSS/JS code that integrates the requested changes while maintaining the original site's structure and functionality.
-
-4. **Chat Integration**: Maintain chat capabilities throughout the process so users can request additional modifications or improvements.
-
-5. **Endpoint Implementation**: Create endpoints for:
-   - URL-based website cloning and processing
-   - Helmholtz code model endpoint with alias-large for planning and alias-huge for full codebase context questions
-
-6. **Error Handling**: Implement robust 501 error handling with retry logic:
-   - Retry 3 times at 30-second intervals
-   - After 5 failed attempts, increase interval to 60 seconds
-
-7. **Deployment Focus**: Always consider the target deployment environment (Hugging Face Space harvesthealth/browser-use-webui) when generating code.
+1. **URL Processing**: When given a URL, Jules should first attempt to clone the website using `goclone-dev/goclone.git`
+2. **Fallback Strategy**: If goclone fails, automatically switch to `zTrix/webpage2html.git` as alternative
+3. **Change Integration**: After cloning, Jules should prompt the user for specific changes or accept a change file input
+4. **Modern Website Generation**: Convert the cloned HTML into a modern website incorporating all requested changes
+5. **Interactive Development**: Maintain chat capability for ongoing modifications and improvements
+6. **Error Handling**: Implement robust 501 error handling with exponential backoff (30s → 60s after 5 retries)
 
 ## Prompt Context
 
-Key information Google Jules must keep in mind:
+Key information Jules must keep in mind:
 
-- **Primary Goal**: Adapt the open-lovable project to create a web cloning and modification platform
-- **Core Technologies**: 
-  - Primary: `goclone-dev/goclone.git`
-  - Fallback: `zTrix/webpage2html.git`
-  - Modern web development stack for final output
-- **Special Endpoints**:
-  - Helmholtz code model with two aliases:
-    - `alias-large` for high-level planning and architecture decisions
-    - `alias-huge` for comprehensive codebase context analysis
-- **Error Handling Requirements**: 501 error retry mechanism with exponential backoff
-- **Deployment Target**: Hugging Face Space `harvesthealth/browser-use-webui`
-- **User Experience**: Maintain chat functionality for iterative improvements
-- **Code Quality**: Generate clean, modern, responsive web code that maintains accessibility standards
+- **Primary Cloning Tool**: `goclone-dev/goclone.git` for website cloning
+- **Fallback Tool**: `zTrix/webpage2html.git` for alternative cloning
+- **Modernization Target**: Transform cloned content into contemporary web standards
+- **LLM Integration**: 
+  - `alias-code` for coding tasks
+  - `alias-large` for planning
+  - `alias-huge` for full codebase context questions
+- **Endpoint**: Helmholtz API at `https://api.helmholtz-blablador.fz-juelich.de/v1`
+- **Deployment**: Hugging Face Space `harvesthealth/browser-use-webui` using Gradio SDK
+- **Error Management**: 501 errors retry with exponential backoff (30s → 60s)
+- **User Interaction**: Maintain chat interface for continuous feedback and modifications
 
-## Instructions for Following Other Project Files
+## Project Integration Guidelines
 
-### Project_Overview Integration
-- Refer to `Project_Overview.md` for understanding the overall architecture and design philosophy
-- Align all generated code with the project's stated goals and technical constraints
-- Ensure compatibility with existing project structures and conventions
+Jules should follow these project files and conventions:
 
-### File Structure Considerations
-- Follow the established directory structure for new implementations
-- Place new endpoint code in appropriate locations (likely `src/endpoints/` or similar)
-- Maintain consistency with existing file naming and organization patterns
-- Ensure proper documentation generation alongside new features
+### Project Structure
+```
+project-root/
+├── main.py                 # Main application entry point
+├── requirements.txt        # Dependencies
+├── README.md               # Project documentation
+├── AGENTS.md               # This file
+├── config.json             # Configuration settings
+├── src/
+│   ├── clone_engine.py     # Cloning logic implementation
+│   ├── transform_engine.py # HTML to modern website conversion
+│   ├── chat_engine.py      # Interactive chat functionality
+│   └── api_client.py       # Helmholtz API integration
+└── templates/
+    └── modern_template.html # Modern website template
+```
 
-### Configuration Management
-- Check existing configuration files for environment variable requirements
-- Respect any existing API key or credential management patterns
-- Follow established logging and monitoring practices
+### Implementation Requirements
+1. **URL Endpoint**: Create `/clone-and-modernize` endpoint that accepts URL parameter
+2. **Error Handling**: Implement comprehensive error handling for both cloning tools
+3. **Change Processing**: Parse user-provided changes and integrate them properly
+4. **API Integration**: Connect to Helmholtz API with proper model selection based on task type
+5. **Gradio Integration**: Ensure compatibility with Hugging Face Space deployment
 
-### Testing Guidelines
-- Write tests for new endpoints and core functionality
-- Ensure backward compatibility with existing features
-- Test error handling scenarios thoroughly
+## Implementation Instructions
 
-## Tips for Optimal Results
+### Cloning Process
+1. First attempt: Use `goclone-dev/goclone.git` with timeout protection
+2. Fallback: If failure occurs, use `zTrix/webpage2html.git` with same timeout
+3. Error Handling: Implement 501 error retry logic with exponential backoff
 
-1. **Prioritize User Experience**: Make the chat interface intuitive and responsive. Users should be able to easily request modifications and see immediate feedback.
+### Change Application
+1. Prompt user for specific changes or accept change file input
+2. Parse changes into structured format
+3. Apply changes to cloned HTML while maintaining functionality
+4. Validate changes against original site structure
 
-2. **Handle Failures Gracefully**: When cloning fails, provide clear error messages and smooth fallback procedures. The retry mechanism should be transparent to the user.
+### Modernization Process
+1. Convert legacy HTML/CSS/JS to modern web standards
+2. Implement responsive design principles
+3. Ensure accessibility compliance
+4. Optimize performance and loading times
 
-3. **Code Quality Focus**: Generate modern, maintainable code that follows current web standards. Prioritize clean separation of concerns between HTML, CSS, and JavaScript.
+### LLM Integration
+```python
+def get_llm_model(task_type):
+    if task_type == "coding":
+        return "alias-code"
+    elif task_type == "planning":
+        return "alias-large"
+    elif task_type == "context":
+        return "alias-huge"
+    else:
+        return "alias-code"  # default
+```
 
-4. **Performance Optimization**: Consider loading times and resource usage, especially since this will run in a Hugging Face Space environment with limited resources.
+## Best Practices for Results
 
-5. **Security First**: Validate all user inputs, especially URLs and modification requests, to prevent injection attacks or unexpected behavior.
+1. **Robust Error Handling**: Always implement fallback strategies and retry mechanisms
+2. **User Experience**: Maintain clear communication throughout the process
+3. **Code Quality**: Follow modern Python standards and clean architecture
+4. **Performance**: Optimize both cloning and transformation processes
+5. **Compatibility**: Ensure all generated sites work across different browsers
+6. **Security**: Sanitize inputs and validate all user-provided data
+7. **Testing**: Include unit tests for critical components like error handling and change application
+8. **Documentation**: Keep inline comments and docstrings up to date
+9. **Modularity**: Design components to be easily testable and maintainable
+10. **Scalability**: Consider resource usage when processing large websites
 
-6. **Documentation Integration**: Include clear comments in your code and update relevant documentation files to reflect new functionality.
+## Technical Specifications
 
-7. **Testing Strategy**: Implement comprehensive testing for both successful cases and edge cases, particularly around error handling and fallback mechanisms.
-
-8. **Deployment Optimization**: Keep the final implementation lightweight and efficient for the Hugging Face Space deployment environment.
-
-9. **Progressive Enhancement**: Build upon existing functionality rather than replacing it entirely, ensuring smooth integration with the open-lovable foundation.
-
-10. **Version Control Best Practices**: Use meaningful commit messages and organize changes logically to facilitate review and future maintenance.
+### Required Libraries
+- `requests` for HTTP operations
+- `

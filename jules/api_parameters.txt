@@ -1,140 +1,122 @@
-I'll adapt the `open-lovable` project to include the requested features. Here's the implementation plan and code changes:
-
-1. First, let's modify the main application structure to include the new features.
+I'll help you adapt the `open-lovable` project to include website cloning functionality with the specified requirements. Here's how we can modify the existing structure:
 
 ```python
-# main.py (modified)
+# File: app.py (modified from open-lovable)
 import os
 import time
 import requests
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import subprocess
-import tempfile
 import shutil
-from fastapi.responses import HTMLResponse, JSONResponse
-import logging
-from typing import Optional, Dict, Any
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from typing import Optional
 
 app = FastAPI()
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+# Configuration
+CLONE_ATTEMPTS = 5
+INITIAL_DELAY = 30  # seconds
+DELAY_INCREASE = 30  # seconds
 
-class CloneRequest(BaseModel):
+class WebsiteCloneRequest(BaseModel):
     url: str
     changes: Optional[str] = None
     change_file: Optional[str] = None
 
 class LLMRequest(BaseModel):
     prompt: str
-    model: str = "alias-large"  # default model
+    model: str = "alias-code"  # default model
 
-class EndpointRequest(BaseModel):
-    url: str
+# New endpoint for Helmholtz API
+@app.post("/helmholtz")
+async def helmholtz_api(request: LLMRequest):
+    models = {
+        "alias-code": "https://api.helmholtz-blablador.fz-juelich.de/v1/code",
+        "alias-large": "https://api.helmholtz-blablador.fz-juelich.de/v1/planning",
+        "alias-huge": "https://api.helmholtz-blablador.fz-juelich.de/v1/context"
+    }
 
-# Retry decorator for 501 errors
-def retry_on_501(max_retries=5, delay=30):
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            retries = 0
-            while retries < max_retries:
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    if e.response is not None and e.response.status_code == 501:
-                        retries += 1
-                        if retries < max_retries:
-                            sleep_time = delay if retries < 5 else 60
-                            logger.warning(f"501 error, retrying in {sleep_time} seconds... (attempt {retries}/{max_retries})")
-                            time.sleep(sleep_time)
-                        else:
-                            raise
-                    else:
-                        raise
-        return wrapper
-    return decorator
+    if request.model not in models:
+        raise HTTPException(status_code=400, detail="Invalid model specified")
 
-@app.post("/clone-website")
-@retry_on_501()
-async def clone_website(request: CloneRequest):
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {os.getenv('HELMHOLTZ_API_KEY')}"
+    }
+
+    payload = {
+        "prompt": request.prompt,
+        "max_tokens": 1000,
+        "temperature": 0.7
+    }
+
     try:
-        # First try with goclone
-        result = subprocess.run(
-            ["goclone", request.url],
-            capture_output=True,
-            text=True
-        )
-
-        if result.returncode != 0:
-            # Fallback to webpage2html if goclone fails
-            result = subprocess.run(
-                ["webpage2html", request.url],
-                capture_output=True,
-                text=True
-            )
-
-        if result.returncode != 0:
-            raise HTTPException(status_code=500, detail="Failed to clone website")
-
-        # Process the HTML and apply changes
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Save the cloned content
-            html_content = result.stdout
-            output_path = os.path.join(temp_dir, "index.html")
-            with open(output_path, 'w') as f:
-                f.write(html_content)
-
-            # Apply changes if provided
-            if request.changes or request.change_file:
-                # Here you would implement the change application logic
-                # This could involve parsing the HTML and modifying it
-                pass
-
-            # Build modern website (placeholder for actual implementation)
-            # This would involve processing the HTML and generating a modern site structure
-            modern_site_path = os.path.join(temp_dir, "modern-site")
-            # ... implementation ...
-
-            return {"status": "success", "path": modern_site_path}
-    except Exception as e:
+        response = requests.post(models[request.model], json=payload, headers=headers)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/apply-changes")
-async def apply_changes(request: Request):
-    # Implementation for applying changes to the site
-    # This would read the site files, apply changes, and save them
-    pass
+def clone_website(url: str) -> str:
+    """Clone a website using goclone with fallback to webpage2html"""
+    base_dir = "cloned_sites"
+    os.makedirs(base_dir, exist_ok=True)
+    site_dir = os.path.join(base_dir, url.replace("https://", "").replace("http://", "").replace("/", "_"))
 
-@app.post("/llm")
-async def llm_endpoint(request: LLMRequest):
-    # Implementation for LLM endpoint with model selection
-    # Default to alias-large for planning, use alias-huge for full context
-    if "full context" in request.prompt.lower():
-        model = "alias-huge"
-    else:
-        model = request.model or "alias-large"
+    # First try with goclone
+    try:
+        result = subprocess.run([
+            "goclone",
+            "--url", url,
+            "--output", site_dir,
+            "--no-sandbox"
+        ], check=True, capture_output=True, text=True)
+        return site_dir
+    except subprocess.CalledProcessError as e:
+        print(f"goclone failed: {e}")
+        # Fallback to webpage2html
+        try:
+            result = subprocess.run([
+                "webpage2html",
+                url,
+                "-o", site_dir
+            ], check=True, capture_output=True, text=True)
+            return site_dir
+        except subprocess.CalledProcessError as f:
+            raise Exception(f"Both cloning methods failed: goclone - {e}\nwebpage2html - {f}")
 
-    # Call the LLM with the selected model
-    # ... implementation ...
-    return {"response": "LLM response"}
+def apply_changes(site_dir: str, changes: Optional[str] = None, change_file: Optional[str] = None):
+    """Apply changes to the cloned website"""
+    if change_file:
+        # Read changes from file
+        with open(change_file, 'r') as f:
+            changes = f.read()
 
-@app.post("/endpoint")
-async def endpoint_handler(request: EndpointRequest):
-    # Implementation for passing a URL
-    # This could be used to trigger various operations on the URL
-    return {"status": "received", "url": request.url}
+    if changes:
+        # Here you would implement the actual changes to HTML/CSS/JS
+        # This is a placeholder for the actual implementation
+        print(f"Applying changes to {site_dir}")
+        # Example: modify index.html
+        index_path = os.path.join(site_dir, "index.html")
+        if os.path.exists(index_path):
+            with open(index_path, 'r+') as f:
+                content = f.read()
+                # Apply changes here (simplified example)
+                modified_content = content.replace('</head>', f'<script src="/chat.js"></script></head>')
+                f.seek(0)
+                f.write(modified_content)
+                f.truncate()
 
-@app.get("/chat")
-async def chat_interface(request: Request):
-    return templates.TemplateResponse("chat.html", {"request": request})
+@app.post("/clone-website")
+async def clone_website_endpoint(request: WebsiteCloneRequest):
+    """Endpoint to clone a website and apply changes"""
+    try:
+        attempts = 0
+        delay = INITIAL_DELAY
 
-@app.get("/")
-async def main_interface(request
+        while attempts < CLONE_ATTEMPTS:
+            try:
+                site_dir = clone_website(request.url)
+                apply_changes(site_dir, request.changes, request.change_file)
+                return {"status": "success", "

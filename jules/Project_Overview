@@ -1,129 +1,137 @@
-# Project Adaptation Plan: Open-Lovable Clone & Modern Website Builder
+# Project Plan for Website Cloning & Modification Tool
 
-## 1. Estimation of Project Scope from 1-10 and Core Parts Presentation
+## 1. Estimation of Project Scope from 1-10 and Core Parts
 
 **Scope Rating: 8/10**
 
-This project involves significant complexity due to multiple integration points and advanced features. The core parts include:
+### Core Components:
+1. **Website Cloning Engine**: Using goclone-dev/goclone.git as primary, webpage2html.git as fallback
+2. **HTML Code Processing Module**: Parse cloned HTML and apply user modifications
+3. **LLM Integration Layer**: Helmholtz API for coding tasks with different models
+4. **Chat Interface**: Continuous modification capability through conversation
+5. **API Endpoint System**: RESTful interface for URL input and functionality access
+6. **Error Handling & Retry Logic**: 501 error management with exponential backoff
+7. **Deployment Infrastructure**: Hugging Face Space integration
 
-1. **Website Cloning Engine**: Integration of goclone and webpage2html for reliable website capture
-2. **Modern Website Generator**: HTML/CSS/JS transformation engine with user customization
-3. **LLM Integration Layer**: Helmholtz Code Model with specialized aliases for different contexts
-4. **Error Handling System**: Robust retry mechanisms with exponential backoff
-5. **API Endpoint Framework**: FastAPI-based interface for all functionalities
-6. **Deployment Automation**: Hugging Face Space hosting with monitoring capabilities
-
-## 2. Project Description, Vision, Goals, and Future Use Cases
+## 2. Project Description
 
 ### Vision
-Create an intelligent web cloning and modernization platform that transforms existing websites into contemporary, customizable web applications while maintaining functionality and adding AI-powered enhancements.
+Create a platform that allows users to clone existing websites, customize their content and structure, and enhance them with AI-powered modifications while maintaining a conversational interface for ongoing improvements.
 
 ### Concrete Goals
-- Build robust website cloning infrastructure using multiple fallback methods
-- Enable seamless modernization of cloned websites with user-defined modifications
-- Integrate advanced LLM capabilities specifically for code analysis and planning
-- Implement comprehensive error handling with automatic recovery
-- Provide complete API access for programmatic usage
-- Deploy as a production-ready Hugging Face Space
+- Clone websites using robust cloning tools with fallback mechanisms
+- Apply user-defined modifications to cloned sites
+- Integrate advanced LLM capabilities for code generation and optimization
+- Provide real-time chat interface for iterative design changes
+- Offer API endpoints for programmatic access
+- Deploy seamlessly on Hugging Face Spaces
 
 ### Future Use Cases
-- Rapid prototyping of web applications from existing sites
-- Educational tool for web development learning
-- Content migration and modernization services
-- AI-assisted web design and development
-- Codebase analysis and documentation generation
+- Rapid prototyping of web applications
+- Content customization for marketing campaigns
+- Educational tool for learning web development concepts
+- Automated website redesign services
+- Integration with CMS platforms for dynamic content updates
 
 ### Future Integrations
-- Additional cloning engines for edge cases
-- Advanced AI models for more sophisticated transformations
-- Version control integration for tracking modifications
-- CI/CD pipeline automation for continuous updates
+- Additional cloning libraries for diverse website types
+- More LLM models for specialized tasks
+- Version control systems for tracking modifications
+- Template marketplace for pre-built designs
 
-## 3. Other Projects/API Endpoints to be Integrated
+## 3. Integrated Projects/API Endpoints
 
-### Primary External Components
-1. **goclone-dev/goclone** - Main website cloning engine
-2. **zTrix/webpage2html** - Fallback cloning solution
-3. **Helmholtz Code Model** - Specialized LLM for code analysis
-4. **FastAPI** - Web framework for API endpoints
-5. **Gradio** - UI interface for interactive usage
+| Component | Integration | Purpose |
+|-----------|-------------|---------|
+| goclone-dev/goclone | Primary cloning engine | High-fidelity website replication |
+| zTrix/webpage2html | Fallback cloning engine | Alternative approach when main fails |
+| Helmholtz API | LLM backend | Code generation and optimization |
+| FastAPI | Backend framework | API endpoint management |
+| Gradio | Frontend interface | User interaction and visualization |
 
-### Integration Requirements
-- API Documentation lookup for goclone and webpage2html
-- Build protocol investigation for both cloning tools
-- Authentication and rate-limiting considerations
-- Compatibility checks between components
+## 4. Components Architecture
 
-## 4. Component List and Architecture
+### 4.1 Component List and Interactions
 
-### 4.1 Components and Interactions
-
-#### Core Components:
 1. **Cloning Service**
-   - Primary: goclone-dev/goclone
-   - Fallback: zTrix/webpage2html
-   - Communication: Direct command execution + result parsing
+   - Interacts with goclone and webpage2html
+   - Communicates with Storage Service for saving cloned content
+   - Provides status updates to UI Controller
 
-2. **Transformation Engine**
-   - HTML/CSS/JS processing layer
-   - User modification application
-   - Modernization logic implementation
+2. **Modification Engine**
+   - Receives user inputs and change requests
+   - Parses HTML and applies transformations
+   - Interfaces with LLM Service for intelligent modifications
+   - Outputs modified HTML to Rendering Service
 
-3. **LLM Interface Layer**
-   - Helmholtz Code Model integration
-   - Alias routing (alias-large vs alias-huge)
-   - Context-aware response generation
+3. **LLM Integration Layer**
+   - Routes requests to appropriate Helmholtz models
+   - Manages model selection based on task complexity
+   - Handles API communication with external service
 
-4. **Error Handler**
-   - Retry mechanism with exponential backoff
-   - Status code 501 handling
-   - Recovery protocol implementation
+4. **Chat Interface Controller**
+   - Processes natural language modification requests
+   - Converts conversations to structured change instructions
+   - Coordinates with Modification Engine
 
-5. **API Gateway**
-   - FastAPI endpoint definitions
-   - Request/response handling
-   - Route management
+5. **Rendering Service**
+   - Takes modified HTML and generates final website view
+   - Ensures responsive design compatibility
+   - Provides preview capabilities
 
-6. **Deployment Monitor**
-   - Hugging Face Space integration
-   - Log monitoring system
-   - Auto-recovery mechanisms
+6. **API Gateway**
+   - Exposes endpoints for URL cloning, modification, and chat
+   - Manages authentication and rate limiting
+   - Routes requests to appropriate internal services
 
-### 4.2 Subtasks Per Component
+7. **Storage Service**
+   - Manages temporary and permanent storage of cloned sites
+   - Handles versioning of modifications
+   - Provides caching for frequently accessed content
+
+### 4.2 Subtasks per Component
 
 #### Cloning Service
-- [ ] Investigate goclone API documentation and usage patterns
-- [ ] Implement primary cloning method with error handling
-- [ ] Integrate webpage2html as fallback mechanism
-- [ ] Validate cloning results against source URLs
-- [ ] Add timeout and resource limit controls
+- Investigate goclone API documentation and build protocol
+- Implement fallback mechanism to webpage2html
+- Design error handling for network failures
+- Create status reporting system
+- Test with various website types
 
-#### Transformation Engine
-- [ ] Design HTML/CSS/JS transformation protocols
-- [ ] Create user modification parser
-- [ ] Implement modernization templates
-- [ ] Develop change application logic
-- [ ] Add validation for transformed outputs
+#### Modification Engine
+- Develop HTML parsing logic for common structures
+- Implement change application protocols
+- Design validation system for modifications
+- Create safe transformation rules
+- Build conflict resolution for overlapping changes
 
-#### LLM Interface Layer
-- [ ] Set up Helmholtz Code Model API connection
-- [ ] Implement alias-large routing for planning tasks
-- [ ] Implement alias-huge routing for full context queries
-- [ ] Design context-aware response formatting
-- [ ] Add query optimization and caching
+#### LLM Integration Layer
+- Review Helmholtz API documentation for alias-code, alias-large, and alias-huge
+- Implement model routing logic based on query complexity
+- Create request/response wrapper for consistent interfaces
+- Design caching strategy for repeated queries
+- Implement error recovery for API failures
 
-#### Error Handler
-- [ ] Implement 501 error detection and recovery
-- [ ] Configure 30-second retry intervals
-- [ ] Set up 60-second retry intervals after 5 failures
-- [ ] Add logging for error tracking
-- [ ] Create automated recovery procedures
+#### Chat Interface Controller
+- Parse natural language modification requests
+- Convert text to structured modification instructions
+- Maintain conversation context state
+- Handle multi-turn dialogues effectively
+- Generate clear feedback messages
+
+#### Rendering Service
+- Implement responsive design validation
+- Create preview generation capabilities
+- Ensure cross-browser compatibility
+- Add export functionality (HTML/PDF)
+- Optimize performance for large websites
 
 #### API Gateway
-- [ ] Define FastAPI route structure
-- [ ] Implement URL parameter validation
-- [ ] Add authentication middleware
-- [ ] Create request/response serialization
-- [ ] Set up endpoint testing framework
+- Define RESTful endpoint schema
+- Implement request/response validation
+- Add authentication middleware
+- Create rate limiting for API usage
+- Design logging system for monitoring
 
-#### Deployment Monitor
+#### Storage Service
+- Design database
