@@ -1,0 +1,54 @@
+```python
+# Hugging Face Data Configuration
+HF_NAMESPACE = "your-namespace-here"
+HF_PROFILE = "your-profile-here" 
+HF_TOKEN = "your-hf-token-here"
+
+# API List Overview
+API_ENDPOINTS = {
+    "text_generation": "/api/text-generation",
+    "image_classification": "/api/image-classification", 
+    "translation": "/api/translation",
+    "summarization": "/api/summarization"
+}
+
+# External Services API Documentation
+EXTERNAL_SERVICES = {
+    "gradio": {
+        "base_url": "https://api.gradio.app",
+        "documentation": "https://gradio.readthedocs.io/en/latest/",
+        "endpoints": {
+            "launch": "/v1/launch",
+            "deploy": "/v1/deploy",
+            "status": "/v1/status"
+        }
+    },
+    "huggingface_hub": {
+        "base_url": "https://huggingface.co/api",
+        "documentation": "https://huggingface.co/docs/huggingface_hub/index",
+        "endpoints": {
+            "models": "/models",
+            "datasets": "/datasets",
+            "spaces": "/spaces"
+        }
+    }
+}
+
+# Gradio Integration Configuration
+GRADIO_CONFIG = {
+    "api_key": HF_TOKEN,
+    "namespace": HF_NAMESPACE,
+    "profile": HF_PROFILE,
+    "max_workers": 4,
+    "timeout": 30
+}
+
+# Project Structure
+PROJECT_STRUCTURE = {
+    "data": "data/",
+    "models": "models/",
+    "api": "api/",
+    "services": "services/",
+    "utils": "utils/"
+}
+```

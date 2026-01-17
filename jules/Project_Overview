@@ -1,0 +1,108 @@
+# Project Documentation
+
+## 1. Project Scope Estimation (1-10)
+**Estimated Scope: 4**
+**Core Components:**
+- React/Next.js Frontend
+- Text Generation API
+- Hugging Face Deployment
+
+## 2. Project Description
+
+### Vision
+To create a web application that allows users to interact with AI models for various tasks, starting with text generation. The application should be easily extensible to include other models and features in the future.
+
+### Concrete Goals
+- Implement a text generation feature using the Helmholtz Blablador service.
+- Deploy the application to a Hugging Face Space.
+- Ensure the application is well-documented and easy to maintain.
+
+### Future Use Cases
+- Integration of other AI models (e.g., image classification, translation).
+- User authentication and personalized experiences.
+- More advanced UI/UX for interacting with the models.
+
+### Future Integrations
+- Other LLM providers.
+- Vector databases for RAG applications.
+
+## 3. External Project/API Integrations
+- **Helmholtz Blablador:** Used for the text generation feature.
+
+## 4. Component Architecture
+
+### 4.1 Component List
+- **Text Generation API:** A Next.js API route that handles requests to the Helmholtz Blablador API.
+- **Text Generation UI:** A React component that provides a user interface for the text generation feature.
+
+### 4.2 Component Details
+- **Text Generation API:**
+  - **Architecture:** A serverless function deployed as a Next.js API route. It receives a prompt from the frontend, securely calls the Helmholtz Blablador API with the necessary credentials, and streams the response back to the client.
+  - **Interaction Endpoints:** `/api/text-generation`
+  - **Integration Method:** Partial integration, mirroring the functionality of the Helmholtz Blablador API.
+  - **Build Protocol:** Built as part of the standard Next.js build process.
+- **Text Generation UI:**
+  - **Architecture:** A client-side React component that uses the `ai/react` library to interact with the text generation API. It provides a chat-like interface for users to enter prompts and view the streaming response.
+  - **Interaction Endpoints:** Interacts with the `/api/text-generation` endpoint.
+  - **Integration Method:** Full integration into the existing React application.
+  - **Build Protocol:** Built as part of the standard Next.js build process.
+
+### 4.3 Test Cases per Component
+- **Text Generation API:**
+  - **Test 1:** Send a valid prompt to the API. **Success Criteria:** The API should return a streaming text response from the Helmholtz Blablador API.
+  - **Test 2:** Send a request with a missing or invalid API key. **Success Criteria:** The API should return an appropriate error message.
+- **Text Generation UI:**
+  - **Test 1:** Enter a prompt and click "submit". **Success Criteria:** The UI should display the streaming response from the AI.
+  - **Test 2:** The "Clear" button should clear the chat history. **Success Criteria:** The UI should be cleared of all messages.
+
+## 5. Full Pipeline Test
+**Description:**
+A user navigates to the `/text-generation` page, enters a prompt into the input field, and submits the form. The application should send the prompt to the backend API, which then calls the Helmholtz Blablador API. The response from the Helmholtz Blablador API should be streamed back to the frontend and displayed in the chat interface.
+
+**Success Criteria:**
+The user sees a streaming response from the AI in the chat interface.
+
+**Mock Input Data:**
+```json
+{
+  "prompt": "Hello, who are you?"
+}
+```
+
+## 6. API Endpoints
+- **`/api/text-generation`:**
+  - **Method:** `POST`
+  - **Description:** Receives a prompt and returns a streaming text response from the Helmholtz Blablador API.
+
+**Deployment Parameters:**
+- **`HELMHOLTZ_API_KEY`:** The API key for the Helmholtz Blablador service.
+
+**Reference:**
+See `jules/deployment/huggingface_interactions` for deployment details.
+
+## 7. Monitoring and Deployment
+**Build Logs:**
+```bash
+curl -N \
+     -H "Authorization: Bearer $HF_TOKEN" \
+     "https://huggingface.co/api/spaces/Leon4gr45/openoperator/logs/build"
+```
+
+**Run Logs:**
+```bash
+curl -N \
+     -H "Authorization: Bearer $HF_TOKEN" \
+     "https://huggingface.co/api/spaces/Leon4gr45/openoperator/logs/run"
+```
+
+**Process:**
+1. Check build logs
+2. Check run logs
+3. Edit files based on errors
+4. Redeploy as needed
+5. Test functionality via API
+6. Verify output in `/deployment/functionality_endpoints_logs.txt`
+
+**Functionality Testing:**
+- **Test method for `/api/text-generation`:** Send a POST request with a JSON body containing a "prompt" to the endpoint and verify that a streaming text response is returned.
+```
