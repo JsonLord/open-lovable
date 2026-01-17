@@ -1,8 +1,8 @@
-import OpenAI from 'openai';
-import { OpenAIStream, StreamingTextResponse } from 'ai';
+import { streamText } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
 
 // Create an OpenAI API client (that's edge friendly!)
-const openai = new OpenAI({
+const customOpenAI = createOpenAI({
   apiKey: process.env.HELMHOLTZ_API_KEY || '',
   baseURL: 'https://api.helmholtz-blablador.fz-juelich.de/v1',
 });
@@ -13,10 +13,8 @@ export const runtime = 'edge';
 export async function POST(req: Request) {
   const { prompt, model } = await req.json();
 
-  // Ask OpenAI for a streaming chat completion given the prompt
-  const response = await openai.chat.completions.create({
-    model: model || 'alias-code',
-    stream: true,
+  const result = await streamText({
+    model: customOpenAI(model || 'alias-code'),
     messages: [
       {
         role: 'user',
@@ -25,8 +23,5 @@ export async function POST(req: Request) {
     ],
   });
 
-  // Convert the response into a friendly text-stream
-  const stream = OpenAIStream(response);
-  // Respond with the stream
-  return new StreamingTextResponse(stream);
+  return result.toTextStreamResponse();
 }

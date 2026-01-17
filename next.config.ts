@@ -9,6 +9,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.externals = [...config.externals, 'undici'];
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
