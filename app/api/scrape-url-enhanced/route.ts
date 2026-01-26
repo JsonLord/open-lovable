@@ -18,7 +18,6 @@ function sanitizeQuotes(text: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('--- APPLYING COMBINED FIX V1 ---');
     const { url } = await request.json();
     
     if (!url) {

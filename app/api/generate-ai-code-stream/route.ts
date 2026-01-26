@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { streamText } from 'ai';
+import { streamText, generateText } from 'ai';
 import type { SandboxState } from '@/types/sandbox';
 import { selectFilesForEdit, getFileContents, formatFilesForAI } from '@/lib/context-selector';
 import { executeSearchPlan, formatSearchResultsForAI, selectTargetFile } from '@/lib/file-search-executor';
@@ -1188,6 +1188,7 @@ MORPH FAST APPLY MODE (EDIT-ONLY):
         console.log(`[generate-ai-code-stream] Using provider for model: ${actualModel}`);
         console.log(`[generate-ai-code-stream] Model string: ${model}`);
 
+        if (isEdit) {
         // Make streaming API call with appropriate provider
         const streamOptions: any = {
           model: modelProvider(actualModel),
@@ -1663,7 +1664,31 @@ Original request: ${prompt}
 Provide the complete file content without any truncation. Include all necessary imports, complete all functions, and close all tags properly.`;
                 
                 // Make a focused API call to complete this specific file
-                const { client: completionClient, actualModel: completionModelName } = getProviderForModel(model);
+                // Create a new client for the completion based on the provider
+                let completionClient;
+                if (model.includes('gpt') || model.includes('openai')) {
+                  completionClient = openai;
+                } else if (model.includes('claude')) {
+                  completionClient = anthropic;
+                } else if (model === 'moonshotai/kimi-k2-instruct-0905') {
+                  completionClient = groq;
+                } else {
+                  completionClient = groq;
+                }
+
+                // Determine the correct model name for the completion
+                let completionModelName: string;
+                if (model === 'moonshotai/kimi-k2-instruct-0905') {
+                  completionModelName = 'moonshotai/kimi-k2-instruct-0905';
+                } else if (model.includes('openai')) {
+                  completionModelName = model.replace('openai/', '');
+                } else if (model.includes('anthropic')) {
+                  completionModelName = model.replace('anthropic/', '');
+                } else if (model.includes('google')) {
+                  completionModelName = model.replace('google/', '');
+                } else {
+                  completionModelName = model;
+                }
                 
                 const completionResult = await streamText({
                   model: completionClient(completionModelName),
@@ -1761,6 +1786,116 @@ Provide the complete file content without any truncation. Include all necessary 
           global.conversationState.lastUpdated = Date.now();
           
           console.log('[generate-ai-code-stream] Updated conversation history with edit:', editRecord);
+        }
+        } else {
+            // New logic for initial generation (non-edit mode)
+            await sendProgress({ type: 'status', message: 'Creating file generation plan...' });
+            const planPrompt = `Based on the user's request for a new web application, provide a list of files to create.
+User Request: "${prompt}"
+
+Respond ONLY with a JSON array of strings, where each string is a file path.
+Example: ["src/index.css", "src/App.jsx", "src/components/Header.jsx", "src/components/Hero.jsx", "src/components/Footer.jsx"]`;
+
+            const { text: filePlanJson } = await generateText({
+                model: modelProvider(actualModel),
+                system: "You are a senior software architect. Your task is to plan the file structure for a new React application based on a user's request. You only respond with a JSON array of file paths.",
+                prompt: planPrompt,
+                temperature: 0.2, // Low temp for planning
+            });
+
+            let filePlan: string[];
+            try {
+                // Attempt to parse the JSON. Handle cases where the AI might return markdown
+                const cleanedJson = filePlanJson.replace(/```json\n|```/g, '').trim();
+                filePlan = JSON.parse(cleanedJson);
+                console.log('[generate-ai-code-stream] Parsed file plan:', filePlan);
+            } catch (e) {
+                console.error("Failed to parse file plan:", filePlanJson);
+                await sendProgress({ type: 'error', message: 'Failed to create a file generation plan. The AI returned an invalid format.' });
+                throw new Error("Invalid file plan format");
+            }
+
+            await sendProgress({ type: 'plan', files: filePlan });
+
+            let generatedCode = '';
+            let componentCount = 0;
+            const generatedFilesContent: { [key: string]: string } = {};
+
+            for (const filePath of filePlan) {
+                await sendProgress({ type: 'status', message: `Generating ${filePath}...` });
+
+                // Accumulate context from previously generated files
+                let accumulatedContext = '';
+                if (Object.keys(generatedFilesContent).length > 0) {
+                    accumulatedContext += "\n\nPreviously generated files for context:\n";
+                    for (const [path, content] of Object.entries(generatedFilesContent)) {
+                        accumulatedContext += `<file path="${path}">\n${content}\n</file>\n`;
+                    }
+                }
+
+                const fileGenPrompt = `The overall user request is to build a new web application: "${prompt}".
+The full planned application file structure is: ${JSON.stringify(filePlan)}.
+${accumulatedContext}
+Your current task is to generate the complete, production-ready code for the following file ONLY:
+File: ${filePath}
+
+CRITICAL INSTRUCTIONS:
+1. Generate ONLY the code for the specified file path.
+2. The file must be complete, with all necessary imports and code.
+3. Do NOT include any explanations, markdown, or XML tags. Your entire response will be the content of this single file.
+4. Adhere to all the rules specified in the system prompt (Tailwind usage, no inline styles, etc.).
+5. Make sure you are generating code that aligns with the other files in the plan (e.g., if App.jsx imports Header.jsx, the Header.jsx you generate should be a valid React component).`;
+
+                let fileContent = '';
+                const fileResult = await streamText({
+                  model: modelProvider(actualModel),
+                  messages: [
+                      { role: 'system', content: systemPrompt },
+                      { role: 'user', content: fileGenPrompt }
+                  ],
+                  maxTokens: 4096, // Smaller token limit per file
+                  temperature: 0.7
+                });
+
+                const fileTagStart = `<file path="${filePath}">`;
+                generatedCode += fileTagStart;
+                await sendProgress({ type: 'stream', text: fileTagStart, raw: true });
+
+                for await (const textPart of fileResult.textStream) {
+                    fileContent += textPart;
+                    generatedCode += textPart;
+                    await sendProgress({ type: 'stream', text: textPart, raw: true });
+                }
+                generatedFilesContent[filePath] = fileContent;
+
+                const fileTagEnd = `</file>`;
+                generatedCode += fileTagEnd;
+                await sendProgress({ type: 'stream', text: fileTagEnd, raw: true });
+
+
+                if (filePath.includes('components/')) {
+                    componentCount++;
+                    const componentName = filePath.split('/').pop()?.replace('.jsx', '') || 'Component';
+                    await sendProgress({
+                        type: 'component',
+                        name: componentName,
+                        path: filePath,
+                        index: componentCount
+                    });
+                }
+            }
+
+            // Finalize
+            await sendProgress({
+                type: 'complete',
+                generatedCode,
+                explanation: 'Application generated successfully.',
+                files: filePlan.length,
+                components: componentCount,
+                model,
+                packagesToInstall: undefined,
+                warnings: undefined
+            });
         }
         
       } catch (error) {
