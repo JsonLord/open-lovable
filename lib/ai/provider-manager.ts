@@ -4,7 +4,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
-type ProviderName = 'openai' | 'anthropic' | 'groq' | 'google';
+type ProviderName = 'openai' | 'anthropic' | 'groq' | 'google' | 'helmholtz';
 
 // Client function type returned by @ai-sdk providers
 export type ProviderClient =
@@ -40,6 +40,8 @@ function getEnvDefaults(provider: ProviderName): { apiKey?: string; baseURL?: st
       return { apiKey: process.env.GROQ_API_KEY, baseURL: process.env.GROQ_BASE_URL };
     case 'google':
       return { apiKey: process.env.GEMINI_API_KEY, baseURL: process.env.GEMINI_BASE_URL };
+    case 'helmholtz':
+      return { apiKey: process.env.BLABLADOR_API_KEY, baseURL: 'https://api.helmholtz-blablador.fz-juelich.de/v1' };
     default:
       return {};
   }
@@ -69,7 +71,7 @@ function getOrCreateClient(provider: ProviderName, apiKey?: string, baseURL?: st
       client = createGoogleGenerativeAI({ apiKey: effective.apiKey || getEnvDefaults('google').apiKey, baseURL: effective.baseURL ?? getEnvDefaults('google').baseURL });
       break;
     default:
-      client = createGroq({ apiKey: effective.apiKey || getEnvDefaults('groq').apiKey, baseURL: effective.baseURL ?? getEnvDefaults('groq').baseURL });
+      client = createOpenAI({ apiKey: effective.apiKey || getEnvDefaults('helmholtz').apiKey, baseURL: effective.baseURL ?? getEnvDefaults('helmholtz').baseURL });
   }
 
   clientCache.set(cacheKey, client);
@@ -111,8 +113,8 @@ export function getProviderForModel(modelId: string): ProviderResolution {
     return { client, actualModel: modelId.replace('google/', '') };
   }
 
-  // Default: use Groq with modelId as-is
-  const client = getOrCreateClient('groq');
+  // Default: use Helmholtz with modelId as-is
+  const client = getOrCreateClient('helmholtz');
   return { client, actualModel: modelId };
 }
 
