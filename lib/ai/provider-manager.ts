@@ -1,15 +1,11 @@
 import { appConfig } from '@/config/app.config';
-import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
-type ProviderName = 'openai' | 'anthropic' | 'google' | 'helmholtz';
+type ProviderName = 'openai' | 'helmholtz';
 
 // Client function type returned by @ai-sdk providers
 export type ProviderClient =
-  | ReturnType<typeof createOpenAI>
-  | ReturnType<typeof createAnthropic>
-  | ReturnType<typeof createGoogleGenerativeAI>;
+  | ReturnType<typeof createOpenAI>;
 
 export interface ProviderResolution {
   client: ProviderClient;
@@ -31,11 +27,6 @@ function getEnvDefaults(provider: ProviderName): { apiKey?: string; baseURL?: st
   switch (provider) {
     case 'openai':
       return { apiKey: process.env.OPENAI_API_KEY, baseURL: process.env.OPENAI_BASE_URL };
-    case 'anthropic':
-      // Default Anthropic base URL mirrors existing routes
-      return { apiKey: process.env.ANTHROPIC_API_KEY, baseURL: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com/v1' };
-    case 'google':
-      return { apiKey: process.env.GEMINI_API_KEY, baseURL: process.env.GEMINI_BASE_URL };
     case 'helmholtz':
       return { apiKey: process.env.BLABLADOR_API_KEY, baseURL: 'https://api.helmholtz-blablador.fz-juelich.de/v1' };
     default:
@@ -56,12 +47,6 @@ function getOrCreateClient(provider: ProviderName, apiKey?: string, baseURL?: st
   switch (provider) {
     case 'openai':
       client = createOpenAI({ apiKey: effective.apiKey || getEnvDefaults('openai').apiKey, baseURL: effective.baseURL ?? getEnvDefaults('openai').baseURL });
-      break;
-    case 'anthropic':
-      client = createAnthropic({ apiKey: effective.apiKey || getEnvDefaults('anthropic').apiKey, baseURL: effective.baseURL ?? getEnvDefaults('anthropic').baseURL });
-      break;
-    case 'google':
-      client = createGoogleGenerativeAI({ apiKey: effective.apiKey || getEnvDefaults('google').apiKey, baseURL: effective.baseURL ?? getEnvDefaults('google').baseURL });
       break;
     case 'helmholtz':
       client = createOpenAI({ apiKey: effective.apiKey || getEnvDefaults('helmholtz').apiKey, baseURL: effective.baseURL ?? getEnvDefaults('helmholtz').baseURL });
@@ -84,23 +69,11 @@ export function getProviderForModel(modelId: string): ProviderResolution {
   }
 
   // 2) Fallback logic based on prefixes and special cases
-  const isAnthropic = modelId.startsWith('anthropic/');
   const isOpenAI = modelId.startsWith('openai/');
-  const isGoogle = modelId.startsWith('google/');
-
-  if (isAnthropic) {
-    const client = getOrCreateClient('anthropic');
-    return { client, actualModel: modelId.replace('anthropic/', '') };
-  }
 
   if (isOpenAI) {
     const client = getOrCreateClient('openai');
     return { client, actualModel: modelId.replace('openai/', '') };
-  }
-
-  if (isGoogle) {
-    const client = getOrCreateClient('google');
-    return { client, actualModel: modelId.replace('google/', '') };
   }
 
   // Default: use Helmholtz with modelId as-is
