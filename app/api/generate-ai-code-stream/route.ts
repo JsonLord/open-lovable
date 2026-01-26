@@ -1181,6 +1181,9 @@ MORPH FAST APPLY MODE (EDIT-ONLY):
         
         // Determine which provider to use based on model
         const { client: modelProvider, actualModel } = getProviderForModel(model);
+        const isAnthropic = model.startsWith('anthropic/');
+        const isGoogle = model.startsWith('google/');
+        const isOpenAI = model.startsWith('openai/');
 
         console.log(`[generate-ai-code-stream] Using provider for model: ${actualModel}`);
         console.log(`[generate-ai-code-stream] Model string: ${model}`);
