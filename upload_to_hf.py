@@ -17,7 +17,6 @@ api.upload_folder(
     folder_path=".",
     repo_id=repo_id,
     repo_type=repo_type,
-    delete_patterns=["lib/ai/*", "app/api/*"],
     ignore_patterns=[".git/*", "node_modules/*", ".next/*", "upload_to_hf.py"] # ignore some files
 )
 
