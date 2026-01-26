@@ -1282,6 +1282,8 @@ It's better to have 3 complete files than 10 incomplete files.`
           } catch (streamError: any) {
             console.error(`[generate-ai-code-stream] Error calling streamText (attempt ${retryCount + 1}/${maxRetries + 1}):`, streamError);
             
+            // Check if this is a Groq service unavailable error
+            const isGroqServiceError = isKimiGroq && streamError.message?.includes('Service unavailable');
             const isRetryableError = streamError.message?.includes('Service unavailable') || 
                                     streamError.message?.includes('rate limit') ||
                                     streamError.message?.includes('timeout');
@@ -1299,11 +1301,17 @@ It's better to have 3 complete files than 10 incomplete files.`
               // Wait before retry with exponential backoff
               await new Promise(resolve => setTimeout(resolve, retryCount * 2000));
               
+              // If Groq fails, try switching to a fallback model
+              if (isGroqServiceError && retryCount === maxRetries) {
+                console.log('[generate-ai-code-stream] Groq service unavailable, falling back to GPT-4');
+                streamOptions.model = openai('gpt-4-turbo');
+                actualModel = 'gpt-4-turbo';
+              }
             } else {
               // Final error, send to user
               await sendProgress({ 
                 type: 'error', 
-                message: `Failed to initialize ${isGoogle ? 'Gemini' : isAnthropic ? 'Claude' : isOpenAI ? 'GPT-5' : 'AI'} streaming: ${streamError.message}`
+                message: `Failed to initialize ${isGoogle ? 'Gemini' : isAnthropic ? 'Claude' : isOpenAI ? 'GPT-5' : isKimiGroq ? 'Kimi (Groq)' : 'Groq'} streaming: ${streamError.message}`
               });
               
               // If this is a Google model error, provide helpful info

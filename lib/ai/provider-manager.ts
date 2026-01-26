@@ -63,6 +63,9 @@ function getOrCreateClient(provider: ProviderName, apiKey?: string, baseURL?: st
     case 'google':
       client = createGoogleGenerativeAI({ apiKey: effective.apiKey || getEnvDefaults('google').apiKey, baseURL: effective.baseURL ?? getEnvDefaults('google').baseURL });
       break;
+    case 'helmholtz':
+      client = createOpenAI({ apiKey: effective.apiKey || getEnvDefaults('helmholtz').apiKey, baseURL: effective.baseURL ?? getEnvDefaults('helmholtz').baseURL });
+      break;
     default:
       client = createOpenAI({ apiKey: effective.apiKey || getEnvDefaults('helmholtz').apiKey, baseURL: effective.baseURL ?? getEnvDefaults('helmholtz').baseURL });
   }

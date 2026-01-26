@@ -18,6 +18,7 @@ function sanitizeQuotes(text: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('--- APPLYING COMBINED FIX V1 ---');
     const { url } = await request.json();
     
     if (!url) {
@@ -44,8 +45,8 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         url,
         formats: ['markdown', 'html', 'screenshot'],
-        waitFor: 3000,
-        timeout: 30000,
+        waitFor: 20000,
+        timeout: 120000,
         blockAds: true,
         maxAge: 3600000, // Use cached data if less than 1 hour old (500% faster!)
         actions: [
