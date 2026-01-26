@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         url,
         formats: ['markdown', 'html', 'screenshot'],
-        waitFor: 3000,
-        timeout: 30000,
+        waitFor: 10000,
+        timeout: 60000,
         blockAds: true,
         maxAge: 3600000, // Use cached data if less than 1 hour old (500% faster!)
         actions: [
