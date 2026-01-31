@@ -1,48 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createGroq } from '@ai-sdk/groq';
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createOpenAI } from '@ai-sdk/openai';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { streamText } from 'ai';
+import { streamText, generateText } from 'ai';
 import type { SandboxState } from '@/types/sandbox';
 import { selectFilesForEdit, getFileContents, formatFilesForAI } from '@/lib/context-selector';
 import { executeSearchPlan, formatSearchResultsForAI, selectTargetFile } from '@/lib/file-search-executor';
 import { FileManifest } from '@/types/file-manifest';
 import type { ConversationState, ConversationMessage, ConversationEdit } from '@/types/conversation';
 import { appConfig } from '@/config/app.config';
+import { getProviderForModel } from '@/lib/ai/provider-manager';
 
 // Force dynamic route to enable streaming
 export const dynamic = 'force-dynamic';
-
-// Check if we're using Vercel AI Gateway
-const isUsingAIGateway = !!process.env.AI_GATEWAY_API_KEY;
-const aiGatewayBaseURL = 'https://ai-gateway.vercel.sh/v1';
-
-console.log('[generate-ai-code-stream] AI Gateway config:', {
-  isUsingAIGateway,
-  hasGroqKey: !!process.env.GROQ_API_KEY,
-  hasAIGatewayKey: !!process.env.AI_GATEWAY_API_KEY
-});
-
-const groq = createGroq({
-  apiKey: process.env.AI_GATEWAY_API_KEY ?? process.env.GROQ_API_KEY,
-  baseURL: isUsingAIGateway ? aiGatewayBaseURL : undefined,
-});
-
-const anthropic = createAnthropic({
-  apiKey: process.env.AI_GATEWAY_API_KEY ?? process.env.ANTHROPIC_API_KEY,
-  baseURL: isUsingAIGateway ? aiGatewayBaseURL : (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com/v1'),
-});
-
-const googleGenerativeAI = createGoogleGenerativeAI({
-  apiKey: process.env.AI_GATEWAY_API_KEY ?? process.env.GEMINI_API_KEY,
-  baseURL: isUsingAIGateway ? aiGatewayBaseURL : undefined,
-});
-
-const openai = createOpenAI({
-  apiKey: process.env.AI_GATEWAY_API_KEY ?? process.env.OPENAI_API_KEY,
-  baseURL: isUsingAIGateway ? aiGatewayBaseURL : process.env.OPENAI_BASE_URL,
-});
 
 // Helper function to analyze user preferences from conversation history
 function analyzeUserPreferences(messages: ConversationMessage[]): {
@@ -1213,35 +1180,15 @@ MORPH FAST APPLY MODE (EDIT-ONLY):
         const packagesToInstall: string[] = [];
         
         // Determine which provider to use based on model
+        const { client: modelProvider, actualModel } = getProviderForModel(model);
         const isAnthropic = model.startsWith('anthropic/');
         const isGoogle = model.startsWith('google/');
         const isOpenAI = model.startsWith('openai/');
-        const isKimiGroq = model === 'moonshotai/kimi-k2-instruct-0905';
-        const modelProvider = isAnthropic ? anthropic : 
-                              (isOpenAI ? openai : 
-                              (isGoogle ? googleGenerativeAI : 
-                              (isKimiGroq ? groq : groq)));
-        
-        // Fix model name transformation for different providers
-        let actualModel: string;
-        if (isAnthropic) {
-          actualModel = model.replace('anthropic/', '');
-        } else if (isOpenAI) {
-          actualModel = model.replace('openai/', '');
-        } else if (isKimiGroq) {
-          // Kimi on Groq - use full model string
-          actualModel = 'moonshotai/kimi-k2-instruct-0905';
-        } else if (isGoogle) {
-          // Google uses specific model names - convert our naming to theirs  
-          actualModel = model.replace('google/', '');
-        } else {
-          actualModel = model;
-        }
 
-        console.log(`[generate-ai-code-stream] Using provider: ${isAnthropic ? 'Anthropic' : isGoogle ? 'Google' : isOpenAI ? 'OpenAI' : 'Groq'}, model: ${actualModel}`);
-        console.log(`[generate-ai-code-stream] AI Gateway enabled: ${isUsingAIGateway}`);
+        console.log(`[generate-ai-code-stream] Using provider for model: ${actualModel}`);
         console.log(`[generate-ai-code-stream] Model string: ${model}`);
 
+        if (isEdit) {
         // Make streaming API call with appropriate provider
         const streamOptions: any = {
           model: modelProvider(actualModel),
@@ -1336,8 +1283,6 @@ It's better to have 3 complete files than 10 incomplete files.`
           } catch (streamError: any) {
             console.error(`[generate-ai-code-stream] Error calling streamText (attempt ${retryCount + 1}/${maxRetries + 1}):`, streamError);
             
-            // Check if this is a Groq service unavailable error
-            const isGroqServiceError = isKimiGroq && streamError.message?.includes('Service unavailable');
             const isRetryableError = streamError.message?.includes('Service unavailable') || 
                                     streamError.message?.includes('rate limit') ||
                                     streamError.message?.includes('timeout');
@@ -1355,17 +1300,11 @@ It's better to have 3 complete files than 10 incomplete files.`
               // Wait before retry with exponential backoff
               await new Promise(resolve => setTimeout(resolve, retryCount * 2000));
               
-              // If Groq fails, try switching to a fallback model
-              if (isGroqServiceError && retryCount === maxRetries) {
-                console.log('[generate-ai-code-stream] Groq service unavailable, falling back to GPT-4');
-                streamOptions.model = openai('gpt-4-turbo');
-                actualModel = 'gpt-4-turbo';
-              }
             } else {
               // Final error, send to user
               await sendProgress({ 
                 type: 'error', 
-                message: `Failed to initialize ${isGoogle ? 'Gemini' : isAnthropic ? 'Claude' : isOpenAI ? 'GPT-5' : isKimiGroq ? 'Kimi (Groq)' : 'Groq'} streaming: ${streamError.message}` 
+                message: `Failed to initialize ${isGoogle ? 'Gemini' : isAnthropic ? 'Claude' : isOpenAI ? 'GPT-5' : 'AI'} streaming: ${streamError.message}`
               });
               
               // If this is a Google model error, provide helpful info
@@ -1736,7 +1675,7 @@ Provide the complete file content without any truncation. Include all necessary 
                 } else {
                   completionClient = groq;
                 }
-                
+
                 // Determine the correct model name for the completion
                 let completionModelName: string;
                 if (model === 'moonshotai/kimi-k2-instruct-0905') {
@@ -1847,6 +1786,116 @@ Provide the complete file content without any truncation. Include all necessary 
           global.conversationState.lastUpdated = Date.now();
           
           console.log('[generate-ai-code-stream] Updated conversation history with edit:', editRecord);
+        }
+        } else {
+            // New logic for initial generation (non-edit mode)
+            await sendProgress({ type: 'status', message: 'Creating file generation plan...' });
+            const planPrompt = `Based on the user's request for a new web application, provide a list of files to create.
+User Request: "${prompt}"
+
+Respond ONLY with a JSON array of strings, where each string is a file path.
+Example: ["src/index.css", "src/App.jsx", "src/components/Header.jsx", "src/components/Hero.jsx", "src/components/Footer.jsx"]`;
+
+            const { text: filePlanJson } = await generateText({
+                model: modelProvider(actualModel),
+                system: "You are a senior software architect. Your task is to plan the file structure for a new React application based on a user's request. You only respond with a JSON array of file paths.",
+                prompt: planPrompt,
+                temperature: 0.2, // Low temp for planning
+            });
+
+            let filePlan: string[];
+            try {
+                // Attempt to parse the JSON. Handle cases where the AI might return markdown
+                const cleanedJson = filePlanJson.replace(/```json\n|```/g, '').trim();
+                filePlan = JSON.parse(cleanedJson);
+                console.log('[generate-ai-code-stream] Parsed file plan:', filePlan);
+            } catch (e) {
+                console.error("Failed to parse file plan:", filePlanJson);
+                await sendProgress({ type: 'error', message: 'Failed to create a file generation plan. The AI returned an invalid format.' });
+                throw new Error("Invalid file plan format");
+            }
+
+            await sendProgress({ type: 'plan', files: filePlan });
+
+            let generatedCode = '';
+            let componentCount = 0;
+            const generatedFilesContent: { [key: string]: string } = {};
+
+            for (const filePath of filePlan) {
+                await sendProgress({ type: 'status', message: `Generating ${filePath}...` });
+
+                // Accumulate context from previously generated files
+                let accumulatedContext = '';
+                if (Object.keys(generatedFilesContent).length > 0) {
+                    accumulatedContext += "\n\nPreviously generated files for context:\n";
+                    for (const [path, content] of Object.entries(generatedFilesContent)) {
+                        accumulatedContext += `<file path="${path}">\n${content}\n</file>\n`;
+                    }
+                }
+
+                const fileGenPrompt = `The overall user request is to build a new web application: "${prompt}".
+The full planned application file structure is: ${JSON.stringify(filePlan)}.
+${accumulatedContext}
+Your current task is to generate the complete, production-ready code for the following file ONLY:
+File: ${filePath}
+
+CRITICAL INSTRUCTIONS:
+1. Generate ONLY the code for the specified file path.
+2. The file must be complete, with all necessary imports and code.
+3. Do NOT include any explanations, markdown, or XML tags. Your entire response will be the content of this single file.
+4. Adhere to all the rules specified in the system prompt (Tailwind usage, no inline styles, etc.).
+5. Make sure you are generating code that aligns with the other files in the plan (e.g., if App.jsx imports Header.jsx, the Header.jsx you generate should be a valid React component).`;
+
+                let fileContent = '';
+                const fileResult = await streamText({
+                  model: modelProvider(actualModel),
+                  messages: [
+                      { role: 'system', content: systemPrompt },
+                      { role: 'user', content: fileGenPrompt }
+                  ],
+                  maxTokens: 4096, // Smaller token limit per file
+                  temperature: 0.7
+                });
+
+                const fileTagStart = `<file path="${filePath}">`;
+                generatedCode += fileTagStart;
+                await sendProgress({ type: 'stream', text: fileTagStart, raw: true });
+
+                for await (const textPart of fileResult.textStream) {
+                    fileContent += textPart;
+                    generatedCode += textPart;
+                    await sendProgress({ type: 'stream', text: textPart, raw: true });
+                }
+                generatedFilesContent[filePath] = fileContent;
+
+                const fileTagEnd = `</file>`;
+                generatedCode += fileTagEnd;
+                await sendProgress({ type: 'stream', text: fileTagEnd, raw: true });
+
+
+                if (filePath.includes('components/')) {
+                    componentCount++;
+                    const componentName = filePath.split('/').pop()?.replace('.jsx', '') || 'Component';
+                    await sendProgress({
+                        type: 'component',
+                        name: componentName,
+                        path: filePath,
+                        index: componentCount
+                    });
+                }
+            }
+
+            // Finalize
+            await sendProgress({
+                type: 'complete',
+                generatedCode,
+                explanation: 'Application generated successfully.',
+                files: filePlan.length,
+                components: componentCount,
+                model,
+                packagesToInstall: undefined,
+                warnings: undefined
+            });
         }
         
       } catch (error) {

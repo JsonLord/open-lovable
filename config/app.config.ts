@@ -78,8 +78,7 @@ export const appConfig = {
         model: 'moonshotai/kimi-k2-instruct-0905'
       },
       'alias-code': {
-        provider: 'openai',
-        baseURL: 'https://api.helmholtz-blablador.fz-juelich.de/v1',
+        provider: 'helmholtz',
         model: 'alias-code'
       }
     },
