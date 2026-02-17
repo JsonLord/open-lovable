@@ -228,6 +228,90 @@ export class E2BProvider extends SandboxProvider {
     };
   }
 
+  async setupPythonApp(): Promise<void> {
+    if (!this.sandbox) {
+      throw new Error('No active sandbox');
+    }
+
+    const setupScript = `
+import os
+
+print('Setting up Python ML environment...')
+
+# Create directory structure
+os.makedirs('/home/user/app/src/utils', exist_ok=True)
+os.makedirs('/home/user/app/tests', exist_ok=True)
+
+# requirements.txt
+requirements = """numpy
+pandas
+scipy
+matplotlib
+torch
+torchvision
+transformers
+scikit-learn
+tqdm
+pyyaml
+"""
+
+with open('/home/user/app/requirements.txt', 'w') as f:
+    f.write(requirements)
+print('✓ requirements.txt')
+
+# README.md
+readme = """# Paper Implementation
+Modular Python repository generated from a scientific paper.
+
+## Structure
+- src/: Core implementation
+- tests/: Unit tests
+- config.yaml: Hyperparameters
+- requirements.txt: Dependencies
+"""
+
+with open('/home/user/app/README.md', 'w') as f:
+    f.write(readme)
+print('✓ README.md')
+
+# src/__init__.py
+with open('/home/user/app/src/__init__.py', 'w') as f:
+    f.write("")
+print('✓ src/__init__.py')
+
+# src/main.py
+main_py = """
+def main():
+    print("Paper Implementation Sandbox Ready")
+
+if __name__ == "__main__":
+    main()
+"""
+
+with open('/home/user/app/src/main.py', 'w') as f:
+    f.write(main_py)
+print('✓ src/main.py')
+
+print('\\nPython environment setup successfully!')
+`;
+
+    await this.sandbox.runCode(setupScript);
+
+    // Install basic dependencies
+    await this.sandbox.runCode(`
+import subprocess
+print('Installing Python dependencies (this may take a while)...')
+subprocess.run(['pip', 'install', 'numpy', 'pandas', 'scipy', 'tqdm', 'pyyaml'], cwd='/home/user/app')
+print('✓ Basic dependencies installed')
+    `);
+
+    // Track initial files
+    this.existingFiles.add('requirements.txt');
+    this.existingFiles.add('README.md');
+    this.existingFiles.add('src/__init__.py');
+    this.existingFiles.add('src/main.py');
+  }
+
   async setupViteApp(): Promise<void> {
     if (!this.sandbox) {
       throw new Error('No active sandbox');

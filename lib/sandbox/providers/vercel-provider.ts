@@ -322,6 +322,39 @@ export class VercelProvider extends SandboxProvider {
     };
   }
 
+  async setupPythonApp(): Promise<void> {
+    if (!this.sandbox) {
+      throw new Error('No active sandbox');
+    }
+
+    // Create directory structure
+    await this.sandbox.runCommand({
+      cmd: 'mkdir',
+      args: ['-p', '/vercel/sandbox/src/utils', '/vercel/sandbox/tests']
+    });
+
+    // Create requirements.txt
+    const requirements = "numpy\npandas\nscipy\nmatplotlib\ntqdm\npyyaml\n";
+    await this.writeFile('requirements.txt', requirements);
+
+    // Create README.md
+    const readme = "# Paper Implementation\nModular Python repository generated from a scientific paper.\n";
+    await this.writeFile('README.md', readme);
+
+    // Create src/__init__.py
+    await this.writeFile('src/__init__.py', "");
+
+    // Create src/main.py
+    const mainPy = 'def main():\n    print("Paper Implementation Sandbox Ready")\n\nif __name__ == "__main__":\n    main()\n';
+    await this.writeFile('src/main.py', mainPy);
+
+    // Track initial files
+    this.existingFiles.add('requirements.txt');
+    this.existingFiles.add('README.md');
+    this.existingFiles.add('src/__init__.py');
+    this.existingFiles.add('src/main.py');
+  }
+
   async setupViteApp(): Promise<void> {
     if (!this.sandbox) {
       throw new Error('No active sandbox');

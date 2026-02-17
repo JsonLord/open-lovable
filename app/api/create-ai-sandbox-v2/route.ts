@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { SandboxFactory } from '@/lib/sandbox/factory';
 // SandboxProvider type is used through SandboxFactory
 import type { SandboxState } from '@/types/sandbox';
@@ -12,9 +12,10 @@ declare global {
   var sandboxState: SandboxState;
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    console.log('[create-ai-sandbox-v2] Creating sandbox...');
+    const { mode = 'website' } = await request.json().catch(() => ({}));
+    console.log(`[create-ai-sandbox-v2] Creating sandbox in ${mode} mode...`);
     
     // Clean up all existing sandboxes
     console.log('[create-ai-sandbox-v2] Cleaning up existing sandboxes...');
@@ -41,8 +42,8 @@ export async function POST() {
     const provider = SandboxFactory.create();
     const sandboxInfo = await provider.createSandbox();
     
-    console.log('[create-ai-sandbox-v2] Setting up Vite React app...');
-    await provider.setupViteApp();
+    console.log(`[create-ai-sandbox-v2] Setting up ${mode} app...`);
+    await provider.setupApp(mode as 'paper' | 'website');
     
     // Register with sandbox manager
     sandboxManager.registerSandbox(sandboxInfo.sandboxId, provider);
