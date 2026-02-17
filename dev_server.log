@@ -1,0 +1,24 @@
+
+> open-lovable@0.1.0 dev
+> next dev --turbopack
+
+   ▲ Next.js 15.4.3 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.0.2:3000
+
+ ✓ Starting...
+ ✓ Ready in 5.1s
+ ⚠ Webpack is configured while Turbopack is not, which may cause problems.
+ ⚠ See instructions if you need to configure Turbopack:
+  https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
+
+ ○ Compiling / ...
+Browserslist: browsers data (caniuse-lite) is 8 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ ✓ Compiled / in 23.5s
+ GET / 200 in 25164ms
+ GET / 200 in 409ms
+ GET / 200 in 1404ms
+ GET / 200 in 258ms
+ GET / 200 in 588ms

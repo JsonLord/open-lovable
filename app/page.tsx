@@ -51,8 +51,44 @@ export default function HomePage() {
   const [showInstructionsForIndex, setShowInstructionsForIndex] = useState<number | null>(null);
   const [additionalInstructions, setAdditionalInstructions] = useState<string>('');
   const [extendBrandStyles, setExtendBrandStyles] = useState<boolean>(false);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
   const router = useRouter();
   
+  const handleFileUpload = async (file: File) => {
+    setIsUploading(true);
+    toast.info(`Processing ${file.name}...`);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/process-paper', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          sessionStorage.setItem('paperContent', data.content);
+          sessionStorage.setItem('paperTitle', data.title || file.name);
+          sessionStorage.setItem('autoStart', 'true');
+          router.push('/generation');
+        } else {
+          toast.error(data.error || "Failed to process paper");
+        }
+      } else {
+        toast.error("Failed to upload paper");
+      }
+    } catch (error) {
+      console.error("Error uploading paper:", error);
+      toast.error("An error occurred during upload");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   // Simple URL validation
   const validateUrl = (urlString: string) => {
     if (!urlString) return false;
@@ -126,7 +162,7 @@ export default function HomePage() {
         sessionStorage.setItem('brandExtensionPrompt', additionalInstructions || '');
         router.push('/generation');
       } else {
-        // Normal clone mode
+        // Normal paper mode
         sessionStorage.setItem('targetUrl', inputValue);
         sessionStorage.setItem('selectedStyle', selectedStyle);
         sessionStorage.setItem('selectedModel', selectedModel);
@@ -238,7 +274,7 @@ export default function HomePage() {
               <div className="flex gap-8">
                 <a
                   className="contents"
-                  href="https://github.com/mendableai/open-lovable"
+                  href="https://github.com/going-doer/Paper2Code"
                   target="_blank"
                 >
                   <ButtonUI variant="tertiary">
@@ -268,14 +304,14 @@ export default function HomePage() {
               <HomeHeroBadge />
               <HomeHeroTitle />
               <p className="text-center text-body-large">
-                Clone brand format or re-imagine any website, in seconds.
+                Transform scientific papers into high-quality code repositories.
               </p>
               <Link
                 className="bg-black-alpha-4 hover:bg-black-alpha-6 rounded-6 px-8 lg:px-6 text-label-large h-30 lg:h-24 block mt-8 mx-auto w-max gap-4 transition-all"
-                href="#"
-                onClick={(e) => e.preventDefault()}
+                href="https://github.com/going-doer/Paper2Code"
+                target="_blank"
               >
-                Powered by Firecrawl.
+                Powered by Paper2Code.
               </Link>
             </div>
           </div>
@@ -300,7 +336,24 @@ export default function HomePage() {
                   }}
                 >
 
-                <div className="p-[28px] flex gap-12 items-center w-full relative bg-white rounded-20">
+                <div
+                  className={`p-[28px] flex gap-12 items-center w-full relative bg-white rounded-20 transition-all ${isDragging ? 'bg-orange-50 border-2 border-dashed border-orange-300' : ''}`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file && (file.type === 'application/pdf' || file.name.endsWith('.json'))) {
+                      handleFileUpload(file);
+                    } else {
+                      toast.error("Please upload a PDF or JSON file");
+                    }
+                  }}
+                >
                   {/* Show different UI when search results are displayed */}
                   {hasSearched && searchResults.length > 0 && !isFadingOut ? (
                     <>
@@ -321,7 +374,7 @@ export default function HomePage() {
                       
                       {/* Selection message */}
                       <div className="flex-1 text-body-input text-accent-black">
-                        Select which site to clone from the results below
+                        Select which paper to implement from the results below
                       </div>
                       
                       {/* Search again button */}
@@ -355,7 +408,7 @@ export default function HomePage() {
                   ) : (
                     <>
                       {isURL(url) ? (
-                        // Scrape icon for URLs
+                        // Paper icon for URLs
                         <svg 
                           width="20" 
                           height="20" 
@@ -364,8 +417,10 @@ export default function HomePage() {
                           xmlns="http://www.w3.org/2000/svg"
                           className="opacity-40 flex-shrink-0"
                         >
-                          <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-                          <path d="M7 10L9 12L13 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M14 2H6C4.89543 2 4 2.89543 4 4V16C4 17.1046 4.89543 18 6 18H14C15.1046 18 16 17.1046 16 16V4C16 2.89543 15.1046 2 14 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M8 6H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M8 10H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M8 14H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                       ) : (
                         // Search icon for search terms
@@ -383,7 +438,7 @@ export default function HomePage() {
                       )}
                       <input
                         className="flex-1 bg-transparent text-body-input text-accent-black placeholder:text-black-alpha-48 focus:outline-none focus:ring-0 focus:border-transparent"
-                        placeholder="Enter URL or search term..."
+                        placeholder="Enter ArXiv URL or paper title..."
                         type="text"
                         value={url}
                         disabled={isSearching}
@@ -410,6 +465,33 @@ export default function HomePage() {
                           }
                         }}
                       />
+
+                      {/* Upload Button */}
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          document.getElementById('paper-upload')?.click();
+                        }}
+                        className="p-8 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 mr-2"
+                        title="Upload paper (PDF or JSON)"
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 16V4M12 4L8 8M12 4L16 8M4 20H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
+                      <input
+                        type="file"
+                        id="paper-upload"
+                        className="hidden"
+                        accept=".pdf,.json"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleFileUpload(file);
+                          }
+                        }}
+                      />
+
                       <div
                         onClick={(e) => {
                           e.preventDefault();
@@ -421,7 +503,7 @@ export default function HomePage() {
                       >
                         <HeroInputSubmitButton 
                           dirty={url.length > 0} 
-                          buttonText={isURL(url) ? 'Scrape Site' : 'Search'} 
+                          buttonText={isURL(url) ? 'Extract Paper' : 'Search'}
                           disabled={isSearching}
                         />
                       </div>

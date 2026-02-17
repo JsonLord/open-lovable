@@ -34,29 +34,31 @@ function parseAIResponse(response: string): ParsedResponse {
   // Function to extract packages from import statements
   function extractPackagesFromCode(content: string): string[] {
     const packages: string[] = [];
-    // Match ES6 imports
-    const importRegex = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+|\w+))*\s+from\s+)?['"]([^'"]+)['"]/g;
-    let importMatch;
 
-    while ((importMatch = importRegex.exec(content)) !== null) {
-      const importPath = importMatch[1];
-      // Skip relative imports and built-in React
-      if (!importPath.startsWith('.') && !importPath.startsWith('/') &&
-        importPath !== 'react' && importPath !== 'react-dom' &&
-        !importPath.startsWith('@/')) {
-        // Extract package name (handle scoped packages like @heroicons/react)
-        const packageName = importPath.startsWith('@')
-          ? importPath.split('/').slice(0, 2).join('/')
-          : importPath.split('/')[0];
-
-        if (!packages.includes(packageName)) {
+    // JS/TS Imports (ES6)
+    const jsImportRegex = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+|\w+))*\s+from\s+)?['"]([^'"]+)['"]/g;
+    let jsMatch;
+    while ((jsMatch = jsImportRegex.exec(content)) !== null) {
+      const importPath = jsMatch[1];
+      if (!importPath.startsWith('.') && !importPath.startsWith('/') && !importPath.startsWith('@/')) {
+        const packageName = importPath.startsWith('@') ? importPath.split('/').slice(0, 2).join('/') : importPath.split('/')[0];
+        if (!packages.includes(packageName) && packageName !== 'react' && packageName !== 'react-dom') {
           packages.push(packageName);
-
-          // Log important packages for debugging
-          if (packageName === 'react-router-dom' || packageName.includes('router') || packageName.includes('icon')) {
-            console.log(`[apply-ai-code-stream] Detected package from imports: ${packageName}`);
-          }
         }
+      }
+    }
+
+    // Python Imports
+    const pyImportRegex = /^\s*(?:import\s+(\w+)|from\s+(\w+)\s+import)/gm;
+    let pyMatch;
+    const stdLib = ['os', 'sys', 'time', 'math', 'json', 're', 'datetime', 'collections', 'itertools', 'functools', 'random', 'typing', 'pathlib', 'abc', 'argparse', 'copy', 'glob', 'pickle', 'shutil', 'subprocess', 'threading', 'multiprocessing', 'logging'];
+
+    while ((pyMatch = pyImportRegex.exec(content)) !== null) {
+      const packageName = pyMatch[1] || pyMatch[2];
+      if (packageName && !stdLib.includes(packageName) && !packages.includes(packageName)) {
+        // Simple heuristic: if it's not stdlib and not relative, it's likely a package
+        // This is naive but helpful for pip installs
+        packages.push(packageName);
       }
     }
 
@@ -263,7 +265,8 @@ function parseAIResponse(response: string): ParsedResponse {
 
 export async function POST(request: NextRequest) {
   try {
-    const { response, isEdit = false, packages = [], sandboxId } = await request.json();
+    const { response, isEdit = false, packages = [], sandboxId, mode } = await request.json();
+    const isPaperMode = mode === 'paper';
 
     if (!response) {
       return NextResponse.json({
@@ -578,7 +581,8 @@ export async function POST(request: NextRequest) {
             if (!file?.path) return true;
             let normalizedPath = file.path.startsWith('/') ? file.path.slice(1) : file.path;
             const fileName = normalizedPath.split('/').pop() || '';
-            if (!normalizedPath.startsWith('src/') &&
+            if (!isPaperMode &&
+                !normalizedPath.startsWith('src/') &&
                 !normalizedPath.startsWith('public/') &&
                 normalizedPath !== 'index.html' &&
                 !configFiles.includes(fileName)) {
@@ -604,7 +608,8 @@ export async function POST(request: NextRequest) {
             if (normalizedPath.startsWith('/')) {
               normalizedPath = normalizedPath.substring(1);
             }
-            if (!normalizedPath.startsWith('src/') &&
+            if (!isPaperMode &&
+              !normalizedPath.startsWith('src/') &&
               !normalizedPath.startsWith('public/') &&
               normalizedPath !== 'index.html' &&
               !configFiles.includes(normalizedPath.split('/').pop() || '')) {

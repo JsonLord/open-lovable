@@ -53,9 +53,21 @@ export abstract class SandboxProvider {
   abstract isAlive(): boolean;
   
   // Optional methods that providers can override
+  async setupApp(mode: 'paper' | 'website' = 'website'): Promise<void> {
+    if (mode === 'paper') {
+      return this.setupPythonApp();
+    }
+    return this.setupViteApp();
+  }
+
   async setupViteApp(): Promise<void> {
     // Default implementation for setting up a Vite React app
     throw new Error('setupViteApp not implemented for this provider');
+  }
+
+  async setupPythonApp(): Promise<void> {
+    // Default implementation for setting up a Python ML app
+    throw new Error('setupPythonApp not implemented for this provider');
   }
   
   async restartViteServer(): Promise<void> {

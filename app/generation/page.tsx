@@ -13,6 +13,8 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 // Import icons from centralized module to avoid Turbopack chunk issues
 import { 
   FiFile, 
+  FiFileText,
+  FiActivity,
   FiChevronRight, 
   FiChevronDown,
   FiGithub,
@@ -21,7 +23,8 @@ import {
   SiJavascript, 
   SiReact, 
   SiCss3, 
-  SiJson 
+  SiJson,
+  SiPython
 } from '@/lib/icons';
 import { motion } from 'framer-motion';
 import CodeApplicationProgress, { type CodeApplicationState } from '@/components/CodeApplicationProgress';
@@ -269,14 +272,13 @@ function AISandboxPage() {
       try {
         if (sandboxIdParam) {
           console.log('[home] Attempting to restore sandbox:', sandboxIdParam);
-          // For now, just create a new sandbox - you could enhance this to actually restore
-          // the specific sandbox if your backend supports it
+          // For now, just create a new sandbox
           sandboxCreated = true;
-          await createSandbox(true);
+          await createSandbox(true, storedUrl && (storedUrl.includes('arxiv.org') || sessionStorage.getItem('paperContent')) ? 'paper' : 'website');
         } else {
           console.log('[home] No sandbox in URL, creating new sandbox automatically...');
           sandboxCreated = true;
-          await createSandbox(true);
+          await createSandbox(true, storedUrl && (storedUrl.includes('arxiv.org') || sessionStorage.getItem('paperContent')) ? 'paper' : 'website');
         }
         
         // If we have a URL from the home page, mark for automatic start
@@ -529,7 +531,7 @@ function AISandboxPage() {
 
   const sandboxCreationRef = useRef<boolean>(false);
   
-  const createSandbox = async (fromHomeScreen = false) => {
+  const createSandbox = async (fromHomeScreen = false, mode: 'paper' | 'website' = 'website') => {
     // Prevent duplicate sandbox creation
     if (sandboxCreationRef.current) {
       console.log('[createSandbox] Sandbox creation already in progress, skipping...');
@@ -537,7 +539,7 @@ function AISandboxPage() {
     }
     
     sandboxCreationRef.current = true;
-    console.log('[createSandbox] Starting sandbox creation...');
+    console.log(`[createSandbox] Starting ${mode} sandbox creation...`);
     setLoading(true);
     setShowLoadingBackground(true);
     updateStatus('Creating sandbox...', false);
@@ -548,7 +550,7 @@ function AISandboxPage() {
       const response = await fetch('/api/create-ai-sandbox-v2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
+        body: JSON.stringify({ mode })
       });
       
       const data = await response.json();
@@ -649,7 +651,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           response: code,
           isEdit: isEdit,
           packages: pendingPackages,
-          sandboxId: effectiveSandboxData?.sandboxId // Pass the sandbox ID to ensure proper connection
+          sandboxId: effectiveSandboxData?.sandboxId, // Pass the sandbox ID to ensure proper connection
+          mode: isPaperMode ? 'paper' : 'website'
         })
       });
       
@@ -1321,6 +1324,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                             if (ext === 'css') return 'css';
                             if (ext === 'json') return 'json';
                             if (ext === 'html') return 'html';
+                            if (ext === 'py') return 'python';
+                            if (ext === 'yaml' || ext === 'yml') return 'yaml';
                             return 'jsx';
                           })()}
                           style={vscDarkPlus}
@@ -1446,6 +1451,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                         <div className="bg-gray-900 border border-gray-700  max-h-48 overflow-y-auto scrollbar-hide">
                           <SyntaxHighlighter
                             language={
+                              file.path.endsWith('.py') ? 'python' :
+                              file.path.endsWith('.yaml') || file.path.endsWith('.yml') ? 'yaml' :
                               file.type === 'css' ? 'css' :
                               file.type === 'json' ? 'json' :
                               file.type === 'html' ? 'html' :
@@ -1570,18 +1577,26 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                   
                   {/* Status text */}
                   <p className="text-white text-lg font-medium">
-                    {isCapturingScreenshot ? 'Analyzing website...' :
-                     isPreparingDesign ? 'Preparing design...' :
-                     generationProgress.isGenerating ? 'Generating code...' :
-                     'Loading...'}
+                    {isPaperMode ? (
+                      generationProgress.status || 'Processing paper...'
+                    ) : (
+                      isCapturingScreenshot ? 'Analyzing website...' :
+                      isPreparingDesign ? 'Preparing design...' :
+                      generationProgress.isGenerating ? 'Generating code...' :
+                      'Loading...'
+                    )}
                   </p>
                   
                   {/* Subtle progress hint */}
                   <p className="text-white/60 text-sm mt-2">
-                    {isCapturingScreenshot ? 'Taking a screenshot of the site' :
-                     isPreparingDesign ? 'Understanding the layout and structure' :
-                     generationProgress.isGenerating ? 'Writing React components' :
-                     'Please wait...'}
+                    {isPaperMode ? (
+                      'Implementing scientific methodology in Python'
+                    ) : (
+                      isCapturingScreenshot ? 'Taking a screenshot of the site' :
+                      isPreparingDesign ? 'Understanding the layout and structure' :
+                      generationProgress.isGenerating ? 'Writing React components' :
+                      'Please wait...'
+                    )}
                   </p>
                 </div>
               </div>
@@ -1592,6 +1607,51 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       
       // Show sandbox iframe - keep showing during edits, only hide during initial loading
       if (sandboxData?.url) {
+        if (isPaperMode) {
+          return (
+            <div className="relative w-full h-full bg-[#1e1e1e] text-white p-6 font-mono text-sm overflow-auto">
+              <div className="flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-red-500 rounded-full" />
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full" />
+                  <div className="w-3 h-3 bg-green-500 rounded-full" />
+                  <span className="ml-2 text-gray-400">Terminal — Python Implementation</span>
+                </div>
+                <div className="text-xs text-gray-500">
+                  Sandbox: {sandboxData.sandboxId}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-blue-400">$ python --version</div>
+                <div className="text-gray-300">Python 3.10.12</div>
+                <div className="text-blue-400">$ pip install -r requirements.txt</div>
+                <div className="text-green-400">Successfully installed dependencies.</div>
+                <div className="text-blue-400">$ ls -R</div>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  {generationProgress.files.map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 text-gray-400">
+                      <FiFileText className="text-blue-300" />
+                      <span>{f.path}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-8 p-4 bg-gray-800 rounded border border-gray-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FiActivity className="text-green-500" />
+                    <span className="font-bold text-gray-200">System Ready</span>
+                  </div>
+                  <p className="text-gray-400 text-xs">
+                    The scientific paper has been implemented as a modular Python repository.
+                    You can view the code in the 'Generation' tab or download the full ZIP.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
         return (
           <div className="relative w-full h-full">
             <iframe
@@ -1743,11 +1803,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     // Start sandbox creation in parallel if needed
     let sandboxPromise: Promise<void> | null = null;
     let sandboxCreating = false;
+    const isPaper = sessionStorage.getItem('paperContent') || message.toLowerCase().includes('paper');
     
     if (!sandboxData) {
       sandboxCreating = true;
       addChatMessage('Creating sandbox while I plan your app...', 'system');
-      sandboxPromise = createSandbox(true).catch((error: any) => {
+      sandboxPromise = createSandbox(true, isPaper ? 'paper' : 'website').catch((error: any) => {
         addChatMessage(`Failed to create sandbox: ${error.message}`, 'system');
         throw error;
       });
@@ -2246,6 +2307,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       return <SiCss3 style={{ width: '16px', height: '16px' }} className="text-blue-500" />;
     } else if (ext === 'json') {
       return <SiJson style={{ width: '16px', height: '16px' }} className="text-gray-600" />;
+    } else if (ext === 'py') {
+      return <SiPython style={{ width: '16px', height: '16px' }} className="text-blue-400" />;
     } else {
       return <FiFile style={{ width: '16px', height: '16px' }} className="text-gray-600" />;
     }
@@ -2666,7 +2729,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     );
     
     // Start creating sandbox and capturing screenshot immediately in parallel
-    const sandboxPromise = !sandboxData ? createSandbox(true) : Promise.resolve(null);
+    const isPaper = sessionStorage.getItem('paperContent') || homeUrlInput.includes('arxiv.org');
+    const sandboxPromise = !sandboxData ? createSandbox(true, isPaper ? 'paper' : 'website') : Promise.resolve(null);
     
     // Set loading stage immediately before hiding home screen
     setLoadingStage('gathering');

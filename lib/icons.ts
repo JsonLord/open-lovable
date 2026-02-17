@@ -3,6 +3,8 @@
 
 export { 
   FiFile, 
+  FiFileText,
+  FiActivity,
   FiChevronRight, 
   FiChevronDown,
   FiGithub 
@@ -17,5 +19,6 @@ export {
   SiJavascript, 
   SiReact, 
   SiCss3, 
-  SiJson 
+  SiJson,
+  SiPython
 } from 'react-icons/si';

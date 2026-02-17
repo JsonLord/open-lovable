@@ -1188,7 +1188,119 @@ MORPH FAST APPLY MODE (EDIT-ONLY):
         console.log(`[generate-ai-code-stream] Using provider for model: ${actualModel}`);
         console.log(`[generate-ai-code-stream] Model string: ${model}`);
 
-        if (isEdit) {
+        if (isPaperRepo && !isEdit) {
+          // === MULTI-STAGE PAPER GENERATION ===
+          await sendProgress({ type: 'status', message: 'Stage 1/4: Planning methodology...' });
+
+          // 1. Planning
+          const planningPrompt = `You are a world-class ML researcher. Analyze this paper and create a detailed reproduction plan.
+Outline the key Methodology, Experimental setup, and Evaluation metrics.
+
+PAPER:
+${fullPrompt}
+`;
+          const { text: planning } = await generateText({
+            model: modelProvider(actualModel),
+            system: "You are an expert researcher. Output a structured plan.",
+            prompt: planningPrompt,
+          });
+
+          await sendProgress({ type: 'status', message: 'Stage 2/4: Designing architecture...' });
+
+          // 2. Architecture Design
+          const designPrompt = `Based on the paper and this plan:
+${planning}
+
+Design a modular Python system. Provide a JSON array of files to create.
+Include: dataset_loader.py, model.py, trainer.py, evaluation.py, main.py, config.yaml, requirements.txt.
+
+Respond ONLY with a JSON array of strings (file paths).`;
+
+          const { text: filePlanJson } = await generateText({
+            model: modelProvider(actualModel),
+            system: "You are a software architect. Output ONLY a JSON array of file paths.",
+            prompt: designPrompt,
+          });
+
+          let filePlan: string[];
+          try {
+              const cleanedJson = filePlanJson.replace(/```json\n|```/g, '').trim();
+              filePlan = JSON.parse(cleanedJson);
+          } catch (e) {
+              filePlan = ["src/dataset_loader.py", "src/model.py", "src/trainer.py", "src/evaluation.py", "src/main.py", "config.yaml", "requirements.txt"];
+          }
+
+          await sendProgress({ type: 'plan', files: filePlan });
+
+          // 3. Logic Analysis (Dynamic library detection)
+          await sendProgress({ type: 'status', message: 'Stage 3/4: Analyzing implementation logic...' });
+
+          let generatedFilesContent: { [key: string]: string } = {};
+          let componentCount = 0;
+          let totalGeneratedCode = '';
+
+          for (const filePath of filePlan) {
+              await sendProgress({ type: 'status', message: `Stage 4/4: Generating ${filePath}...` });
+
+              const fileGenPrompt = `Paper Context:
+${fullPrompt.substring(0, 5000)}
+
+Plan:
+${planning}
+
+Full File Structure: ${JSON.stringify(filePlan)}
+
+Current Task: Generate complete Python code for: ${filePath}
+Adhere to Google Python Style Guide. Use type hints. Include docstrings.
+Use hyperparameters from config.yaml (even if you haven't written it yet, assume standard names).
+
+Output ONLY the code for this file.`;
+
+              const fileResult = await streamText({
+                model: modelProvider(actualModel),
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: fileGenPrompt }
+                ],
+                maxTokens: 4096,
+                temperature: 0.5
+              });
+
+              const fileTagStart = `<file path="${filePath}">\n`;
+              totalGeneratedCode += fileTagStart;
+              await sendProgress({ type: 'stream', text: fileTagStart, raw: true });
+
+              let fileContent = '';
+              for await (const textPart of fileResult.textStream) {
+                  fileContent += textPart;
+                  totalGeneratedCode += textPart;
+                  await sendProgress({ type: 'stream', text: textPart, raw: true });
+              }
+              generatedFilesContent[filePath] = fileContent;
+
+              const fileTagEnd = `\n</file>\n`;
+              totalGeneratedCode += fileTagEnd;
+              await sendProgress({ type: 'stream', text: fileTagEnd, raw: true });
+
+              componentCount++;
+              await sendProgress({
+                  type: 'component',
+                  name: filePath.split('/').pop()?.replace('.py', '') || 'Module',
+                  path: filePath,
+                  index: componentCount
+              });
+          }
+
+          await sendProgress({
+            type: 'complete',
+            generatedCode: totalGeneratedCode,
+            explanation: 'Faithful paper implementation repository generated.',
+            files: filePlan.length,
+            components: componentCount,
+            model
+          });
+
+        } else if (isEdit) {
         // Make streaming API call with appropriate provider
         const streamOptions: any = {
           model: modelProvider(actualModel),
