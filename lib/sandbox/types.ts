@@ -58,6 +58,11 @@ export abstract class SandboxProvider {
     throw new Error('setupViteApp not implemented for this provider');
   }
   
+  async setupPythonEnv(): Promise<void> {
+    // Default implementation for setting up a Python environment
+    throw new Error('setupPythonEnv not implemented for this provider');
+  }
+
   async restartViteServer(): Promise<void> {
     // Default implementation for restarting Vite
     throw new Error('restartViteServer not implemented for this provider');

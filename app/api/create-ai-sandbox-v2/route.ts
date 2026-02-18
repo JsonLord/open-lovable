@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { SandboxFactory } from '@/lib/sandbox/factory';
 // SandboxProvider type is used through SandboxFactory
 import type { SandboxState } from '@/types/sandbox';
@@ -12,9 +12,10 @@ declare global {
   var sandboxState: SandboxState;
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    console.log('[create-ai-sandbox-v2] Creating sandbox...');
+    const { runtime = 'react' } = await request.json() || {};
+    console.log(`[create-ai-sandbox-v2] Creating sandbox for ${runtime}...`);
     
     // Clean up all existing sandboxes
     console.log('[create-ai-sandbox-v2] Cleaning up existing sandboxes...');
@@ -41,8 +42,13 @@ export async function POST() {
     const provider = SandboxFactory.create();
     const sandboxInfo = await provider.createSandbox();
     
-    console.log('[create-ai-sandbox-v2] Setting up Vite React app...');
-    await provider.setupViteApp();
+    if (runtime === 'python') {
+      console.log('[create-ai-sandbox-v2] Setting up Python environment...');
+      await provider.setupPythonEnv();
+    } else {
+      console.log('[create-ai-sandbox-v2] Setting up Vite React app...');
+      await provider.setupViteApp();
+    }
     
     // Register with sandbox manager
     sandboxManager.registerSandbox(sandboxInfo.sandboxId, provider);
@@ -75,7 +81,7 @@ export async function POST() {
       sandboxId: sandboxInfo.sandboxId,
       url: sandboxInfo.url,
       provider: sandboxInfo.provider,
-      message: 'Sandbox created and Vite React app initialized'
+      message: `Sandbox created and ${runtime} initialized`
     });
 
   } catch (error) {

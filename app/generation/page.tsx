@@ -61,6 +61,7 @@ interface ScrapeData {
 }
 
 function AISandboxPage() {
+  const [mode, setMode] = useState<'website' | 'paper'>('website');
   const [sandboxData, setSandboxData] = useState<SandboxData | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ text: 'Not connected', active: false });
@@ -529,18 +530,20 @@ function AISandboxPage() {
 
   const sandboxCreationRef = useRef<boolean>(false);
   
-  const createSandbox = async (fromHomeScreen = false) => {
+  const createSandbox = async (fromHomeScreen = false, runtimeOverride?: string) => {
     // Prevent duplicate sandbox creation
     if (sandboxCreationRef.current) {
       console.log('[createSandbox] Sandbox creation already in progress, skipping...');
       return null;
     }
     
+    const runtime = runtimeOverride || (mode === 'paper' ? 'python' : 'react');
+
     sandboxCreationRef.current = true;
-    console.log('[createSandbox] Starting sandbox creation...');
+    console.log(`[createSandbox] Starting sandbox creation for ${runtime}...`);
     setLoading(true);
     setShowLoadingBackground(true);
-    updateStatus('Creating sandbox...', false);
+    updateStatus(`Creating ${runtime} sandbox...`, false);
     setResponseArea([]);
     setScreenshotError(null);
     
@@ -548,7 +551,7 @@ function AISandboxPage() {
       const response = await fetch('/api/create-ai-sandbox-v2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
+        body: JSON.stringify({ runtime })
       });
       
       const data = await response.json();
@@ -3282,7 +3285,33 @@ Focus on the key sections and content, making it clean and modern.`;
     <HeaderProvider>
       <div className="font-sans bg-background text-foreground h-screen flex flex-col">
       <div className="bg-white py-[15px] py-[8px] border-b border-border-faint flex items-center justify-between shadow-sm">
-        <HeaderBrandKit />
+        <div className="flex items-center gap-4">
+          <HeaderBrandKit />
+          <div className="bg-black-alpha-4 p-2 rounded-8 flex gap-2 ml-4">
+            <button
+              onClick={() => {
+                if (mode !== 'website') {
+                  setMode('website');
+                  setSandboxData(null); // Reset sandbox when switching modes
+                }
+              }}
+              className={`px-12 py-4 rounded-6 text-xs font-medium transition-all ${mode === 'website' ? 'bg-white shadow-sm text-accent-black' : 'text-black-alpha-48 hover:text-black-alpha-72'}`}
+            >
+              Website2Code
+            </button>
+            <button
+              onClick={() => {
+                if (mode !== 'paper') {
+                  setMode('paper');
+                  setSandboxData(null); // Reset sandbox when switching modes
+                }
+              }}
+              className={`px-12 py-4 rounded-6 text-xs font-medium transition-all ${mode === 'paper' ? 'bg-white shadow-sm text-accent-black' : 'text-black-alpha-48 hover:text-black-alpha-72'}`}
+            >
+              Paper2Code
+            </button>
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           {/* Model Selector - Left side */}
           <select

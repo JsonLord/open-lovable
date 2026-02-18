@@ -4,6 +4,7 @@ import { getProviderForModel } from "@/lib/ai/provider-manager";
 import { extractFilesFromAI, sanitizeBranchName } from "@/lib/ai-utils";
 import { pushToGitHub } from "@/lib/github";
 import { appConfig } from "@/config/app.config";
+import { fetchArxivPaper } from "@/lib/arxiv";
 
 export async function GET() {
   return NextResponse.json({ message: "Submit job endpoint is active. Use POST to submit a paper." });
@@ -15,16 +16,12 @@ export async function POST(request: NextRequest) {
       arxivUrl,
       paperContent,
       repo,
-      paperName,
+      paperName: providedPaperName,
       model = appConfig.ai.defaultModel
     } = await request.json();
 
     if (!repo) {
       return NextResponse.json({ error: "Target GitHub repository is required (e.g. 'owner/repo')" }, { status: 400 });
-    }
-
-    if (!paperName) {
-      return NextResponse.json({ error: "Paper name is required for branch naming" }, { status: 400 });
     }
 
     const githubToken = process.env.PERSONAL_ACCESS_TOKEN;
@@ -33,27 +30,35 @@ export async function POST(request: NextRequest) {
     }
 
     let finalPaperContent = paperContent || "";
+    let paperName = providedPaperName || "paper-to-code";
 
-    // 1. Get paper content from Arxiv if URL is provided
+    // 1. Get paper content from Arxiv API if URL or query is provided
     if (arxivUrl && !paperContent) {
-      console.log(`[submit-job] Scraping Arxiv: ${arxivUrl}`);
-      try {
-        const scrapeResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/scrape-website`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: arxivUrl })
-        });
+      console.log(`[submit-job] Fetching Arxiv paper: ${arxivUrl}`);
+      const paper = await fetchArxivPaper(arxivUrl);
+      if (paper) {
+        finalPaperContent = `Title: ${paper.title}\n\nAuthors: ${paper.authors.join(', ')}\n\nSummary: ${paper.summary}`;
+        paperName = paper.title;
+        console.log(`[submit-job] Successfully fetched: ${paper.title}`);
+      } else {
+        console.warn(`[submit-job] Arxiv API failed for ${arxivUrl}, falling back to scraping`);
+        // Fallback to scrape if API fails
+        try {
+          const scrapeResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/scrape-website`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: arxivUrl })
+          });
 
-        if (scrapeResponse.ok) {
-          const scrapeData = await scrapeResponse.json();
-          if (scrapeData.success) {
-            finalPaperContent = scrapeData.data.content;
-          } else {
-            console.warn(`[submit-job] Scrape failed: ${scrapeData.error}`);
+          if (scrapeResponse.ok) {
+            const scrapeData = await scrapeResponse.json();
+            if (scrapeData.success) {
+              finalPaperContent = scrapeData.data.content;
+            }
           }
+        } catch (error) {
+          console.error(`[submit-job] Error calling scrape API:`, error);
         }
-      } catch (error) {
-        console.error(`[submit-job] Error calling scrape API:`, error);
       }
     }
 
