@@ -1,3 +1,12 @@
+---
+title: Paper2Code
+emoji: 🚀
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+---
+
 # Open Lovable
 
 Chat with AI to build React apps instantly. An example app made by the [Firecrawl](https://firecrawl.dev/?ref=open-lovable-github) team. For a complete cloud solution, check out [Lovable.dev](https://lovable.dev/) ❤️.
@@ -61,6 +70,22 @@ pnpm dev  # or npm run dev / yarn dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
+
+## API Endpoints
+
+### POST `/api/submit-job`
+Submit a research paper to transform it into code and push to GitHub.
+
+**Request Body:**
+```json
+{
+  "arxivUrl": "https://arxiv.org/abs/...",
+  "paperName": "My Great Paper",
+  "repo": "owner/repo"
+}
+```
+
+**Required environment variable:** `PERSONAL_ACCESS_TOKEN` (GitHub PAT with repo access).
 
 ## License
 

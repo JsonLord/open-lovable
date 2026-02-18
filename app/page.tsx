@@ -38,6 +38,7 @@ interface SearchResult {
 }
 
 export default function HomePage() {
+  const [mode, setMode] = useState<'website' | 'paper'>('website');
   const [url, setUrl] = useState<string>("");
   const [selectedStyle, setSelectedStyle] = useState<string>("1");
   const [selectedModel, setSelectedModel] = useState<string>(appConfig.ai.defaultModel);
@@ -87,7 +88,34 @@ export default function HomePage() {
     const inputValue = url.trim();
 
     if (!inputValue) {
-      toast.error("Please enter a URL or search term");
+      toast.error(mode === 'website' ? "Please enter a URL or search term" : "Please enter an Arxiv link or paper query");
+      return;
+    }
+
+    if (mode === 'paper') {
+      toast.info("Transforming paper to code...");
+      try {
+        const response = await fetch('/api/submit-job', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            arxivUrl: inputValue,
+            repo: 'AUXteam/Paper2Code-Jobs', // Default repo for paper jobs
+            paperName: inputValue.split('/').pop() || 'paper'
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          toast.success("Job submitted! Code will be pushed to GitHub.");
+          if (data.githubUrl) {
+            window.open(data.githubUrl, '_blank');
+          }
+        } else {
+          toast.error(data.error || "Failed to submit job");
+        }
+      } catch (error) {
+        toast.error("An error occurred while submitting the paper");
+      }
       return;
     }
 
@@ -260,10 +288,29 @@ export default function HomePage() {
             <HomeHeroBackground />
 
             <div className="relative container px-16">
+              <div className="flex justify-center mb-12">
+                <div className="bg-black-alpha-4 p-4 rounded-12 flex gap-4">
+                  <button
+                    onClick={() => setMode('website')}
+                    className={`px-16 py-8 rounded-8 text-label-medium transition-all ${mode === 'website' ? 'bg-white shadow-sm text-accent-black' : 'text-black-alpha-48 hover:text-black-alpha-72'}`}
+                  >
+                    Website2Code
+                  </button>
+                  <button
+                    onClick={() => setMode('paper')}
+                    className={`px-16 py-8 rounded-8 text-label-medium transition-all ${mode === 'paper' ? 'bg-white shadow-sm text-accent-black' : 'text-black-alpha-48 hover:text-black-alpha-72'}`}
+                  >
+                    Paper2Code
+                  </button>
+                </div>
+              </div>
+
               <HomeHeroBadge />
               <HomeHeroTitle />
               <p className="text-center text-body-large">
-                Clone brand format or re-imagine any website, in seconds.
+                {mode === 'website'
+                  ? "Clone brand format or re-imagine any website, in seconds."
+                  : "Transform research papers into functional Python or React code."}
               </p>
               <Link
                 className="bg-black-alpha-4 hover:bg-black-alpha-6 rounded-6 px-8 lg:px-6 text-label-large h-30 lg:h-24 block mt-8 mx-auto w-max gap-4 transition-all"
@@ -378,7 +425,7 @@ export default function HomePage() {
                       )}
                       <input
                         className="flex-1 bg-transparent text-body-input text-accent-black placeholder:text-black-alpha-48 focus:outline-none focus:ring-0 focus:border-transparent"
-                        placeholder="Enter URL or search term..."
+                        placeholder={mode === 'website' ? "Enter URL or search term..." : "Enter Arxiv link or reference..."}
                         type="text"
                         value={url}
                         disabled={isSearching}
@@ -416,7 +463,7 @@ export default function HomePage() {
                       >
                         <HeroInputSubmitButton 
                           dirty={url.length > 0} 
-                          buttonText={isURL(url) ? 'Scrape Site' : 'Search'} 
+                          buttonText={mode === 'website' ? (isURL(url) ? 'Scrape Site' : 'Search') : 'Submit Paper'}
                           disabled={isSearching}
                         />
                       </div>
@@ -424,9 +471,9 @@ export default function HomePage() {
                   )}
                 </div>
 
-                {/* Options Section - Only show when valid URL */}
+                {/* Options Section - Only show when valid URL and in website mode */}
                 <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
-                  isValidUrl ? (extendBrandStyles ? 'max-h-[400px]' : 'max-h-[300px]') + ' opacity-100' : 'max-h-0 opacity-0'
+                  mode === 'website' && isValidUrl ? (extendBrandStyles ? 'max-h-[400px]' : 'max-h-[300px]') + ' opacity-100' : 'max-h-0 opacity-0'
                 }`}>
                   <div className="px-[28px] pt-0 pb-[28px]">
                     <div className="border-t border-gray-100 bg-white">

@@ -228,6 +228,47 @@ export class E2BProvider extends SandboxProvider {
     };
   }
 
+  async setupPythonEnv(): Promise<void> {
+    if (!this.sandbox) {
+      throw new Error('No active sandbox');
+    }
+
+    console.log('[E2BProvider] Setting up Python environment...');
+
+    // Create directory structure
+    await this.sandbox.runCode(`
+import os
+os.makedirs('/home/user/app', exist_ok=True)
+print('✓ /home/user/app created')
+    `);
+
+    // Create a requirements.txt with common scientific libraries
+    const requirements = `
+numpy
+pandas
+matplotlib
+scipy
+scikit-learn
+requests
+    `.trim();
+
+    await this.writeFile('requirements.txt', requirements);
+
+    // Create a main.py
+    const mainPy = `
+def main():
+    print("Hello from Paper2Code Python Environment!")
+
+if __name__ == "__main__":
+    main()
+    `.trim();
+
+    await this.writeFile('main.py', mainPy);
+
+    // Install requirements
+    await this.runCommand('pip install -r requirements.txt');
+  }
+
   async setupViteApp(): Promise<void> {
     if (!this.sandbox) {
       throw new Error('No active sandbox');
