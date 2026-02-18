@@ -71,6 +71,22 @@ pnpm dev  # or npm run dev / yarn dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
+## API Endpoints
+
+### POST `/api/submit-job`
+Submit a research paper to transform it into code and push to GitHub.
+
+**Request Body:**
+```json
+{
+  "arxivUrl": "https://arxiv.org/abs/...",
+  "paperName": "My Great Paper",
+  "repo": "owner/repo"
+}
+```
+
+**Required environment variable:** `PERSONAL_ACCESS_TOKEN` (GitHub PAT with repo access).
+
 ## License
 
 MIT
